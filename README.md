@@ -26,8 +26,8 @@ bun run src/cli.ts
 ## Credits
 
 - [quran.com-images](https://github.com/quran/quran.com-images) — inspiration and original approach
-- [Tanzil](https://tanzil.net/) — Quran metadata source
-- [King Fahd Quran Complex](https://qurancomplex.gov.sa/) — QCF font files
+- [Quranic Universal Library (QUL)](https://qul.tarteel.ai/) — fonts and glyph scripts
+- [King Fahd Quran Complex](https://qurancomplex.gov.sa/) — original QCF font files
 
 ## License
 

@@ -3,8 +3,8 @@ node_modules
 # Generated output
 output/
 
-# Font files (user-provided, respect KFGQPC licensing)
-fonts/
+# Data (fonts, glyph DBs, JSON — downloaded via scripts)
+data/
 
 # Reference images for verification
 references/
