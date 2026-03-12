@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import type { GlyphData } from "./types";
+import { LineType, type GlyphData } from "./types";
 
 export const createDb = (dbPath: string) => {
   const db = new Database(dbPath, { readonly: true });
@@ -13,7 +13,7 @@ export const createDb = (dbPath: string) => {
   );
 
   const getPageLines = (page: number) =>
-    lineStmt.all(page) as Array<{ line: number; type: string }>;
+    lineStmt.all(page) as Array<{ line: number; type: LineType }>;
 
   const getLineGlyphs = (page: number, line: number) =>
     glyphStmt.all(page, line) as GlyphData[];
