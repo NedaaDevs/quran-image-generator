@@ -26,10 +26,10 @@ const renderPage = async (page: number) => {
 
   const lineInputs = lines.map((l) => ({
     ...l,
-    glyphs: db.getLineGlyphs(page, l.line),
+    glyphs: db.getLineGlyphs(page, l.line, true),
   }));
 
-  const { lineData, fontSize } = measurePage(fontFamily, lineInputs, width);
+  const { lineData, fontSize, lineHeight, ascent, descent, hPad } = measurePage(fontFamily, lineInputs, width);
 
   const outDir = path.join(ROOT, "output", "v2", "lines", String(width), String(page));
   mkdirSync(outDir, { recursive: true });
@@ -38,7 +38,7 @@ const renderPage = async (page: number) => {
   for (const ld of lineData) {
     if (ld.glyphs.length === 0) continue;
 
-    const buffer = renderLine(fontFamily, fontSize, width, ld);
+    const buffer = renderLine(fontFamily, fontSize, width, { lineHeight, ascent, descent, hPad }, ld);
     await Bun.write(path.join(outDir, `${ld.line}.png`), buffer);
     rendered++;
   }

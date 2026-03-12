@@ -7,6 +7,7 @@ export enum LineType {
 export interface GlyphData {
   position: number;
   text_qpc: string;
+  isMarker?: boolean;
 }
 
 export interface MeasuredGlyph extends GlyphData {

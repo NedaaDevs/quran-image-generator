@@ -15,8 +15,21 @@ export const createDb = (dbPath: string) => {
   const getPageLines = (page: number) =>
     lineStmt.all(page) as Array<{ line: number; type: LineType }>;
 
-  const getLineGlyphs = (page: number, line: number) =>
-    glyphStmt.all(page, line) as GlyphData[];
+  const getLineGlyphs = (page: number, line: number, splitMarkers = false) => {
+    const glyphs = glyphStmt.all(page, line) as GlyphData[];
+    if (!splitMarkers) return glyphs;
+
+    // End-of-ayah entries have "textGlyph markerGlyph" (space-separated)
+    // Split into two: the word glyph + the marker glyph (flagged)
+    return glyphs.flatMap((g) => {
+      const parts = g.text_qpc.split(" ");
+      if (parts.length <= 1) return [g];
+      return [
+        { ...g, text_qpc: parts[0] },
+        { position: g.position, text_qpc: parts[1], isMarker: true },
+      ];
+    });
+  };
 
   const close = () => db.close();
 
