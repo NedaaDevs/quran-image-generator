@@ -1,0 +1,26 @@
+node_modules
+
+# Generated output
+output/
+
+# Font files (user-provided, respect KFGQPC licensing)
+fonts/
+
+# Reference images for verification
+references/
+
+# Build output
+dist/
+*.tgz
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+
+# IDE
+.idea
+*.tsbuildinfo
