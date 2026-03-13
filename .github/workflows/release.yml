@@ -16,9 +16,15 @@ jobs:
           - os: ubuntu-latest
             target: bun-linux-x64
             artifact: quran-gen-linux-x64
+          - os: ubuntu-latest
+            target: bun-linux-arm64
+            artifact: quran-gen-linux-arm64
           - os: macos-latest
             target: bun-darwin-arm64
             artifact: quran-gen-darwin-arm64
+          - os: macos-latest
+            target: bun-darwin-x64
+            artifact: quran-gen-darwin-x64
 
     runs-on: ${{ matrix.os }}
 
@@ -42,6 +48,7 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v4
 
@@ -49,7 +56,7 @@ jobs:
         with:
           merge-multiple: true
 
-      - name: Create or update release
+      - name: Create release and upload binaries
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
