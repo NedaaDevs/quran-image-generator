@@ -146,7 +146,7 @@ const buildVersion = (version: string, cfg: { layout: string; wbw: string }) => 
 
 // Parse args
 const arg = process.argv[2] ?? "all";
-const targets = arg === "all" ? Object.entries(VERSIONS) : [[arg, VERSIONS[arg]]];
+const targets = arg === "all" ? Object.entries(VERSIONS) : [[arg, VERSIONS[arg as keyof typeof VERSIONS]] as const];
 
 if (!targets.every(([, v]) => v)) {
 	console.error("Usage: bun scripts/build-layout.ts [v1|v2|v4|all]");
@@ -154,5 +154,5 @@ if (!targets.every(([, v]) => v)) {
 }
 
 for (const [version, cfg] of targets) {
-	if (version && cfg) buildVersion(version, cfg);
+	if (version && cfg) buildVersion(version, cfg as { layout: string; wbw: string });
 }
