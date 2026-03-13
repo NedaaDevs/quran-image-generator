@@ -10,7 +10,7 @@ const endPage = Number(process.argv[3]) || startPage;
 const width = Number(process.argv[4]) || 1440;
 const mode = process.argv[5] === "page" ? RenderMode.Page : RenderMode.Line;
 const format = process.argv.includes("webp") ? ImageFormat.WebP : ImageFormat.PNG;
-const withMarkers = process.argv.includes("markers");
+const withMarkers = !process.argv.includes("no-markers");
 const showBounds = process.argv.includes("bounds");
 const boundsJson = process.argv.includes("json");
 const quantizeAlpha = process.argv.includes("quantize");
