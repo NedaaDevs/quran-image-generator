@@ -20,7 +20,7 @@ if (startPage < 1 || endPage > 604 || startPage > endPage) {
 
 console.log(`Rendering pages ${startPage}-${endPage} at ${width}px (${version}, ${mode} mode)...\n`);
 
-const { count, bounds } = await generate({
+const { count, boundsCount } = await generate({
   version,
   mode,
   startPage,
@@ -33,14 +33,6 @@ const { count, bounds } = await generate({
   onProgress: (page) => process.stdout.write(`\r  page ${page}/${endPage}`),
 });
 
-// Write bounds JSON alongside rendered images
-if (bounds.length > 0) {
-  const boundsPath = path.join(ROOT, "output", version, "bounds", `${width}.json`);
-  const { mkdirSync } = await import("fs");
-  mkdirSync(path.dirname(boundsPath), { recursive: true });
-  await Bun.write(boundsPath, JSON.stringify(bounds));
-  console.log(`\n  Bounds: ${boundsPath} (${bounds.length} glyphs)`);
-}
-
 const label = mode === RenderMode.Page ? "pages" : "lines";
 console.log(`\nDone — ${count} ${label} across ${endPage - startPage + 1} pages`);
+if (boundsCount > 0) console.log(`  Bounds: ${boundsCount} glyphs (SQLite)`);

@@ -3,8 +3,8 @@ import path from "path";
 import { createBoundsDb } from "./bounds-db";
 import { createDb } from "./database";
 import { registerPageFont } from "./font-loader";
-import { measurePage, renderLine, renderFullPage } from "./renderer";
-import { type FontVersion, type GlyphBounds, type RenderMode, RenderMode as Mode } from "./types";
+import { measurePage, renderLine, renderBlankLine, renderFullPage } from "./renderer";
+import { LINES_PER_PAGE, RenderMode, type FontVersion } from "./types";
 
 export interface GeneratorOptions {
   version: FontVersion;
@@ -21,7 +21,7 @@ export interface GeneratorOptions {
 
 export interface GeneratorResult {
   count: number;
-  bounds: GlyphBounds[];
+  boundsCount: number;
 }
 
 export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult> => {
@@ -29,13 +29,13 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
   const fontsDir = path.join(opts.dataDir, opts.version, "fonts");
   const db = createDb(dbPath);
 
-  // Write bounds to SQLite for efficient per-page/ayah queries at runtime
+  // Bounds written to SQLite for efficient per-page/ayah queries at runtime
   const boundsDbPath = path.join(opts.outputDir, opts.version, "bounds", `${opts.width}.db`);
   const boundsDb = createBoundsDb(boundsDbPath);
   boundsDb.begin();
 
   let count = 0;
-  const allBounds: GlyphBounds[] = [];
+  let boundsCount = 0;
 
   for (let page = opts.startPage; page <= opts.endPage; page++) {
     const fontFamily = registerPageFont(fontsDir, page, opts.version);
@@ -45,26 +45,36 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
       glyphs: db.getLineGlyphs(page, l.line, true),
     }));
 
-    if (opts.mode === Mode.Page) {
-      const buffer = renderFullPage(fontFamily, lineInputs, opts.width, page, opts.withMarkers);
+    if (opts.mode === RenderMode.Page) {
+      const { buffer, bounds } = renderFullPage(fontFamily, lineInputs, opts.width, page, opts.withMarkers, opts.showBounds);
       const outDir = path.join(opts.outputDir, opts.version, "pages", String(opts.width));
       mkdirSync(outDir, { recursive: true });
       await Bun.write(path.join(outDir, `${page}.png`), buffer);
+      boundsDb.writeBounds(bounds);
+      boundsCount += bounds.length;
       count++;
     } else {
-      const { lineData, fontSize, lineHeight, ascent, descent, hPad } = measurePage(fontFamily, lineInputs, opts.width);
+      const { lineData, fontSize, lineHeight, ascent, descent } = measurePage(fontFamily, lineInputs, opts.width);
       const outDir = path.join(opts.outputDir, opts.version, "lines", String(opts.width), String(page));
       mkdirSync(outDir, { recursive: true });
 
-      for (const ld of lineData) {
-        if (ld.glyphs.length === 0) continue;
-        const { buffer, bounds } = renderLine(
-          fontFamily, fontSize, opts.width, { lineHeight, ascent, descent, hPad },
-          ld, opts.withMarkers, page, opts.showBounds
-        );
-        await Bun.write(path.join(outDir, `${ld.line}.png`), buffer);
-        boundsDb.writeBounds(bounds);
-        allBounds.push(...bounds);
+      const lineMap = new Map(lineData.map((ld) => [ld.line, ld]));
+      const blankPng = renderBlankLine(opts.width, lineHeight);
+
+      // Always output full grid — blank PNGs for empty slots
+      for (let lineNum = 1; lineNum <= LINES_PER_PAGE; lineNum++) {
+        const ld = lineMap.get(lineNum);
+        if (ld && ld.glyphs.length > 0) {
+          const { buffer, bounds } = renderLine(
+            fontFamily, fontSize, opts.width, { lineHeight, ascent, descent },
+            ld, opts.withMarkers, page, opts.showBounds
+          );
+          await Bun.write(path.join(outDir, `${lineNum}.png`), buffer);
+          boundsDb.writeBounds(bounds);
+          boundsCount += bounds.length;
+        } else {
+          await Bun.write(path.join(outDir, `${lineNum}.png`), blankPng);
+        }
         count++;
       }
     }
@@ -75,5 +85,5 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
   boundsDb.commit();
   boundsDb.close();
   db.close();
-  return { count, bounds: allBounds };
+  return { count, boundsCount };
 };
