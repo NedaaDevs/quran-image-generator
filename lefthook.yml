@@ -5,3 +5,6 @@ pre-commit:
       run: bunx biome check --write --staged {staged_files}
       glob: "*.{ts,json}"
       stage_fixed: true
+    - name: typecheck
+      run: bunx tsc --noEmit
+      glob: "*.ts"

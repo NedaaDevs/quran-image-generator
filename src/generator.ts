@@ -72,13 +72,14 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 
 	// Reduces anti-aliasing alpha from ~210 levels to 16, drastically improving PNG compression
 	const quantizeAlpha = async (buf: Buffer): Promise<Buffer> => {
-		if (!sharp) return buf;
-		const { data, info } = await sharp(buf).raw().toBuffer({ resolveWithObject: true });
+		const s = sharp;
+		if (!s) return buf;
+		const { data, info } = await s(buf).raw().toBuffer({ resolveWithObject: true });
 		const step = 255 / 15;
 		for (let i = 3; i < data.length; i += 4) {
-			data[i] = Math.round(Math.round(data[i] / step) * step);
+			data[i] = Math.round(Math.round((data[i] ?? 0) / step) * step);
 		}
-		return sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
+		return s(data, { raw: { width: info.width, height: info.height, channels: 4 } })
 			.png()
 			.toBuffer();
 	};

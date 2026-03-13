@@ -57,6 +57,7 @@ export interface MeasuredGlyph extends GlyphData {
 export interface LineInput {
 	line: number;
 	type: LineType;
+	surah_number?: number | null;
 	glyphs: GlyphData[];
 }
 

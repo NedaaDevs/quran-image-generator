@@ -1,16 +1,9 @@
 import { createCanvas } from "@napi-rs/canvas";
 import { BASMALA_FONT, SURAH_HEADER_FONT, SURAH_NAME_FONT } from "./font-loader";
-import {
-	type CanvasMime,
-	type GlyphBounds,
-	ImageFormat,
-	LINES_PER_PAGE,
-	type LineInput,
-	LineType,
-	type MeasuredLine,
-} from "./types";
+import { type GlyphBounds, ImageFormat, LINES_PER_PAGE, type LineInput, LineType, type MeasuredLine } from "./types";
 
-const toMime = (fmt: ImageFormat): CanvasMime => (fmt === ImageFormat.WebP ? "image/webp" : "image/png");
+// Canvas toBuffer accepts these mime types — cast needed because @napi-rs/canvas types are overly strict
+const toMime = (fmt: ImageFormat) => (fmt === ImageFormat.WebP ? "image/webp" : "image/png") as "image/webp";
 
 // Arbitrary reference size for initial glyph measurement — actual fontSize is scaled from this
 const REF_SIZE = 100;
@@ -161,7 +154,7 @@ export const renderLine = (
 	withMarkers = false,
 	page = 0,
 	showBounds = false,
-	format = ImageFormat.PNG,
+	format: ImageFormat = ImageFormat.PNG,
 ): RenderLineResult => {
 	const canvas = createCanvas(width, metrics.lineHeight);
 	const ctx = canvas.getContext("2d");
@@ -229,7 +222,7 @@ export const renderSurahHeader = (
 	lineHeight: number,
 	surahNumber: number,
 	headerGlyphs: Record<string, string>,
-	format = ImageFormat.PNG,
+	format: ImageFormat = ImageFormat.PNG,
 ): Buffer => {
 	const canvas = createCanvas(width, lineHeight);
 	const ctx = canvas.getContext("2d");
@@ -265,7 +258,7 @@ export const renderSurahName = (
 	width: number,
 	lineHeight: number,
 	surahNumber: number,
-	format = ImageFormat.PNG,
+	format: ImageFormat = ImageFormat.PNG,
 ): Buffer => {
 	const canvas = createCanvas(width, lineHeight);
 	const ctx = canvas.getContext("2d");
@@ -284,7 +277,7 @@ export const renderSurahFrame = (
 	width: number,
 	lineHeight: number,
 	headerGlyphs: Record<string, string>,
-	format = ImageFormat.PNG,
+	format: ImageFormat = ImageFormat.PNG,
 ): Buffer => {
 	const render = (key: string) => {
 		const glyph = (headerGlyphs[key] ?? "").trim();
@@ -320,10 +313,10 @@ export const renderSurahFrame = (
 			d1[i + 3] === d2[i + 3] &&
 			d2[i + 3] === d3[i + 3]
 		) {
-			imgData.data[i] = d1[i];
-			imgData.data[i + 1] = d1[i + 1];
-			imgData.data[i + 2] = d1[i + 2];
-			imgData.data[i + 3] = d1[i + 3];
+			imgData.data[i] = d1[i] ?? 0;
+			imgData.data[i + 1] = d1[i + 1] ?? 0;
+			imgData.data[i + 2] = d1[i + 2] ?? 0;
+			imgData.data[i + 3] = d1[i + 3] ?? 0;
 		}
 	}
 	ctx.putImageData(imgData, 0, 0);
@@ -335,7 +328,7 @@ export const renderBasmala = (
 	width: number,
 	lineHeight: number,
 	fontSize: number,
-	format = ImageFormat.PNG,
+	format: ImageFormat = ImageFormat.PNG,
 ): Buffer => {
 	const canvas = createCanvas(width, lineHeight);
 	const ctx = canvas.getContext("2d");
@@ -349,7 +342,7 @@ export const renderBasmala = (
 };
 
 // Blank transparent image at the standard line dimensions — used for empty slots in the 15-line grid
-export const renderBlankLine = (width: number, lineHeight: number, format = ImageFormat.PNG): Buffer =>
+export const renderBlankLine = (width: number, lineHeight: number, format: ImageFormat = ImageFormat.PNG): Buffer =>
 	createCanvas(width, lineHeight).toBuffer(toMime(format));
 
 export interface RenderPageResult {
@@ -367,7 +360,7 @@ export const renderFullPage = (
 	withMarkers = false,
 	showBounds = false,
 	headerGlyphs: Record<string, string> = {},
-	format = ImageFormat.PNG,
+	format: ImageFormat = ImageFormat.PNG,
 ): RenderPageResult => {
 	// Reuse line mode's measurement for identical sizing
 	const { lineData, fontSize, lineHeight, ascent, descent } = measurePage(fontFamily, lines, width);
