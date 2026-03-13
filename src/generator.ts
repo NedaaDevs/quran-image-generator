@@ -6,7 +6,7 @@ import type { GlyphBounds } from "./types";
 import { createBoundsDb, type LineMetadata } from "./bounds-db";
 import { createDb, loadSurahMeta } from "./database";
 import { registerPageFont, registerSurahFonts } from "./font-loader";
-import { measurePage, renderLine, renderBlankLine, renderSurahHeader, renderSurahFrame, renderBasmala, renderFullPage } from "./renderer";
+import { measurePage, renderLine, renderBlankLine, renderSurahHeader, renderSurahName, renderSurahFrame, renderBasmala, renderFullPage } from "./renderer";
 import { ImageFormat, LINES_PER_PAGE, LineType, RenderMode, type FontVersion } from "./types";
 
 export interface GeneratorOptions {
@@ -127,8 +127,12 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
           boundsDb.writeBounds(bounds);
           if (opts.boundsJson) jsonBounds.push(...bounds);
           boundsCount += bounds.length;
-        } else if (opts.withMarkers && lineInfo?.type === LineType.SurahHeader && lineInfo.surah_number) {
-          await Bun.write(filePath, await optimize(renderSurahHeader(opts.width, lineHeight, lineInfo.surah_number, headerGlyphs, fmt)));
+        } else if (lineInfo?.type === LineType.SurahHeader && lineInfo.surah_number) {
+          // With markers: frame + name; without: name only (frame is a theme asset)
+          const hdr = opts.withMarkers
+            ? renderSurahHeader(opts.width, lineHeight, lineInfo.surah_number, headerGlyphs, fmt)
+            : renderSurahName(opts.width, lineHeight, lineInfo.surah_number, fmt);
+          await Bun.write(filePath, await optimize(hdr));
         } else if (lineInfo?.type === LineType.Basmala) {
           await Bun.write(filePath, await optimize(renderBasmala(opts.width, lineHeight, fontSize, fmt)));
         } else {
