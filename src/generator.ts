@@ -6,7 +6,7 @@ import type { GlyphBounds } from "./types";
 import { createBoundsDb, type LineMetadata } from "./bounds-db";
 import { createDb, loadSurahMeta } from "./database";
 import { registerPageFont, registerSurahFonts } from "./font-loader";
-import { measurePage, renderLine, renderBlankLine, renderSurahHeader, renderSurahName, renderSurahFrame, renderAyahMarker, renderBasmala, renderFullPage, setBasmalaText } from "./renderer";
+import { measurePage, renderLine, renderBlankLine, renderSurahHeader, renderSurahName, renderSurahFrame, renderBasmala, renderFullPage, setBasmalaText } from "./renderer";
 import { ImageFormat, LINES_PER_PAGE, LineType, RenderMode, type FontVersion } from "./types";
 
 export interface GeneratorOptions {
@@ -176,10 +176,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
     path.join(markersDir, `surah-frame.${ext}`),
     await optimize(renderSurahFrame(opts.width, lineHeight, headerGlyphs, fmt))
   );
-  await Bun.write(
-    path.join(markersDir, `ayah-marker.${ext}`),
-    await optimize(renderAyahMarker(opts.width, lineHeight, fmt))
-  );
+
 
   db.close();
   return { count, boundsCount };

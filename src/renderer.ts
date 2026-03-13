@@ -305,27 +305,46 @@ export const renderSurahFrame = (width: number, lineHeight: number, headerGlyphs
   return c.toBuffer(toMime(format));
 };
 
-// Renders a standalone end-of-ayah marker circle (no number) for theme overlay use
+// Extracts the ornamental ayah marker frame by diffing 3 different ayah numbers
 export const renderAyahMarker = (
-  width: number,
+  fontFamily: string,
+  fontSize: number,
   lineHeight: number,
+  markerGlyphs: string[],
   format = ImageFormat.PNG
 ): Buffer => {
   const size = lineHeight;
-  const canvas = createCanvas(size, size);
-  const ctx = canvas.getContext("2d");
 
-  const cx = size / 2;
-  const cy = size / 2;
-  const radius = size * 0.35;
+  const render = (glyph: string) => {
+    const c = createCanvas(size, size);
+    const ctx = c.getContext("2d");
+    ctx.font = `${fontSize}px "${fontFamily}"`;
+    ctx.fillStyle = "#000000";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(glyph, size / 2, size / 2);
+    return ctx.getImageData(0, 0, size, size).data;
+  };
 
-  ctx.strokeStyle = "#000000";
-  ctx.lineWidth = Math.max(1, size * 0.02);
-  ctx.beginPath();
-  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-  ctx.stroke();
+  // Diff 3 markers to isolate the shared frame (without the number)
+  const d1 = render(markerGlyphs[0]!);
+  const d2 = render(markerGlyphs[1]!);
+  const d3 = render(markerGlyphs[2]!);
 
-  return canvas.toBuffer(toMime(format));
+  const c = createCanvas(size, size);
+  const ctx = c.getContext("2d");
+  const imgData = ctx.createImageData(size, size);
+  for (let i = 0; i < d1.length; i += 4) {
+    if (d1[i] === d2[i] && d2[i] === d3[i] &&
+        d1[i+1] === d2[i+1] && d2[i+1] === d3[i+1] &&
+        d1[i+2] === d2[i+2] && d2[i+2] === d3[i+2] &&
+        d1[i+3] === d2[i+3] && d2[i+3] === d3[i+3]) {
+      imgData.data[i] = d1[i]; imgData.data[i+1] = d1[i+1];
+      imgData.data[i+2] = d1[i+2]; imgData.data[i+3] = d1[i+3];
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+  return c.toBuffer(toMime(format));
 };
 
 // Renders basmala centered using QCF page 1 font glyphs — matches the version's calligraphic style
