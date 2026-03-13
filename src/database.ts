@@ -1,5 +1,22 @@
 import { Database } from "bun:sqlite";
+import path from "path";
 import { LineType, type GlyphData } from "./types";
+
+export interface SurahMeta {
+  name: string;
+  hasBasmala: boolean;
+}
+
+// Loads surah metadata from DB (1-indexed: surahMeta[1] = { name: "الفاتحة", hasBasmala: false })
+export const loadSurahMeta = (dataDir: string): SurahMeta[] => {
+  const db = new Database(path.join(dataDir, "all", "quran-metadata.db"), { readonly: true });
+  const rows = db.query("SELECT id, name_arabic, bismillah_pre FROM chapters ORDER BY id")
+    .all() as Array<{ id: number; name_arabic: string; bismillah_pre: number }>;
+  db.close();
+  const meta: SurahMeta[] = [{ name: "", hasBasmala: false }];
+  for (const r of rows) meta[r.id] = { name: r.name_arabic, hasBasmala: r.bismillah_pre === 1 };
+  return meta;
+};
 
 export const createDb = (dbPath: string) => {
   const db = new Database(dbPath, { readonly: true });

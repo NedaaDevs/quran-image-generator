@@ -8,6 +8,7 @@ export interface LineMetadata {
   line: number;
   type: LineType;
   surahNumber?: number;
+  surahName?: string;
 }
 
 export const createBoundsDb = (dbPath: string) => {
@@ -38,6 +39,7 @@ export const createBoundsDb = (dbPath: string) => {
     line INTEGER NOT NULL,
     type TEXT NOT NULL,
     surah_number INTEGER,
+    surah_name TEXT,
     PRIMARY KEY (page, line)
   )`);
 
@@ -46,7 +48,7 @@ export const createBoundsDb = (dbPath: string) => {
   );
 
   const insertMeta = db.prepare(
-    "INSERT INTO line_metadata (page, line, type, surah_number) VALUES (?, ?, ?, ?)"
+    "INSERT INTO line_metadata (page, line, type, surah_number, surah_name) VALUES (?, ?, ?, ?, ?)"
   );
 
   const begin = () => db.run("BEGIN");
@@ -60,7 +62,7 @@ export const createBoundsDb = (dbPath: string) => {
 
   const writeLineMetadata = (meta: LineMetadata[]) => {
     for (const m of meta) {
-      insertMeta.run(m.page, m.line, m.type, m.surahNumber ?? null);
+      insertMeta.run(m.page, m.line, m.type, m.surahNumber ?? null, m.surahName ?? null);
     }
   };
 
