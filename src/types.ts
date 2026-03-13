@@ -18,9 +18,25 @@ export const FontVersion = {
 
 export type FontVersion = (typeof FontVersion)[keyof typeof FontVersion];
 
+// Pixel bounding box for a single glyph — links visual position to ayah identity
+export interface GlyphBounds {
+  page: number;
+  line: number;
+  position: number;
+  surahNumber: number;
+  ayahNumber: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  isMarker: boolean;
+}
+
 export interface GlyphData {
   position: number;
   text_qpc: string;
+  surahNumber: number;
+  ayahNumber: number;
   isMarker?: boolean;
 }
 
