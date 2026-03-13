@@ -1,7 +1,7 @@
 import { mkdirSync } from "fs";
 import path from "path";
 import type { GlyphBounds } from "./types";
-import { createBoundsDb } from "./bounds-db";
+import { createBoundsDb, type LineMetadata } from "./bounds-db";
 import { createDb } from "./database";
 import { registerPageFont } from "./font-loader";
 import { measurePage, renderLine, renderBlankLine, renderFullPage } from "./renderer";
@@ -42,9 +42,22 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
   let boundsCount = 0;
   const jsonBounds: GlyphBounds[] = [];
 
+  const allLineMetadata: LineMetadata[] = [];
+
   for (let page = opts.startPage; page <= opts.endPage; page++) {
     const fontFamily = registerPageFont(fontsDir, page, opts.version);
     const lines = db.getPageLines(page);
+
+    // Collect metadata for surah headers and basmalas
+    for (const l of lines) {
+      allLineMetadata.push({
+        page,
+        line: l.line,
+        type: l.type,
+        surahNumber: l.surah_number ?? undefined,
+      });
+    }
+
     const lineInputs = lines.map((l) => ({
       ...l,
       glyphs: db.getLineGlyphs(page, l.line, true),
@@ -89,6 +102,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
     opts.onProgress?.(page, opts.endPage - opts.startPage + 1);
   }
 
+  boundsDb.writeLineMetadata(allLineMetadata);
   boundsDb.commit();
   boundsDb.close();
 

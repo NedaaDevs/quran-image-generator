@@ -5,7 +5,7 @@ export const createDb = (dbPath: string) => {
   const db = new Database(dbPath, { readonly: true });
 
   const lineStmt = db.query(
-    "SELECT line, type FROM mushaf_layout WHERE page = ? ORDER BY line"
+    "SELECT line, type, surah_number FROM mushaf_layout WHERE page = ? ORDER BY line"
   );
 
   const glyphStmt = db.query(
@@ -13,7 +13,7 @@ export const createDb = (dbPath: string) => {
   );
 
   const getPageLines = (page: number) =>
-    lineStmt.all(page) as Array<{ line: number; type: LineType }>;
+    lineStmt.all(page) as Array<{ line: number; type: LineType; surah_number: number | null }>;
 
   interface RawGlyph {
     position: number;

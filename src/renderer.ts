@@ -162,28 +162,26 @@ export const renderLine = (
   ctx.direction = "rtl";
   ctx.textAlign = "center";
 
-  // Filter glyphs based on marker preference
-  const visibleGlyphs = ld.glyphs.filter((g) => withMarkers || !g.isMarker);
-  const lineText = visibleGlyphs.map((g) => g.text_qpc).join("");
+  // Draw text without markers; bounds are always computed for ALL glyphs
+  // so the app can position marker overlays from bounds data
+  const drawGlyphs = ld.glyphs.filter((g) => withMarkers || !g.isMarker);
+  const lineText = drawGlyphs.map((g) => g.text_qpc).join("");
 
   const baseline = Math.floor((metrics.lineHeight + metrics.ascent - metrics.descent) / 2);
   ctx.fillText(lineText, width / 2, baseline);
 
-  // Calculate per-glyph bounds by measuring each glyph individually.
-  // QCF fonts use one code point per word — no inter-glyph kerning to worry about.
-  const fullWidth = ctx.measureText(lineText).width;
+  // QCF fonts use one code point per word — no inter-glyph kerning to worry about
+  const allGlyphs = ld.glyphs;
+  const fullText = allGlyphs.map((g) => g.text_qpc).join("");
+  const fullWidth = ctx.measureText(fullText).width;
 
-  // RTL: first glyph in array is rightmost on screen
   const bounds: GlyphBounds[] = [];
-  let cursorX = (width + fullWidth) / 2; // right edge of centered text
+  let cursorX = (width + fullWidth) / 2;
 
-  for (const g of visibleGlyphs) {
+  for (const g of allGlyphs) {
     const gm = ctx.measureText(g.text_qpc);
     const glyphW = gm.width;
     cursorX -= glyphW;
-
-    const y = baseline - gm.actualBoundingBoxAscent;
-    const h = gm.actualBoundingBoxAscent + gm.actualBoundingBoxDescent;
 
     bounds.push({
       page,
@@ -192,9 +190,9 @@ export const renderLine = (
       surahNumber: g.surahNumber,
       ayahNumber: g.ayahNumber,
       x: Math.round(cursorX),
-      y: Math.round(y),
+      y: Math.round(baseline - gm.actualBoundingBoxAscent),
       width: Math.round(glyphW),
-      height: Math.round(h),
+      height: Math.round(gm.actualBoundingBoxAscent + gm.actualBoundingBoxDescent),
       isMarker: g.isMarker ?? false,
     });
   }
