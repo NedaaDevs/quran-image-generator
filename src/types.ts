@@ -14,6 +14,7 @@ export type RenderMode = (typeof RenderMode)[keyof typeof RenderMode];
 export const FontVersion = {
   V1: "v1",
   V2: "v2",
+  V4: "v4",
 } as const;
 
 export type FontVersion = (typeof FontVersion)[keyof typeof FontVersion];

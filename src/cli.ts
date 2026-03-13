@@ -2,9 +2,11 @@ import path from "path";
 import { generate } from "./generator";
 import { FontVersion, ImageFormat, RenderMode } from "./types";
 
-const ROOT = path.join(import.meta.dir, "..");
+// import.meta.dir works in dev (bun run), process.execPath for compiled binary
+const isCompiled = !import.meta.dir.startsWith("/");
+const ROOT = isCompiled ? path.dirname(process.execPath) : path.join(import.meta.dir, "..");
 
-const version = process.argv.includes("v2") ? FontVersion.V2 : FontVersion.V1;
+const version = process.argv.includes("v4") ? FontVersion.V4 : process.argv.includes("v2") ? FontVersion.V2 : FontVersion.V1;
 const startPage = Number(process.argv[2]) || 1;
 const endPage = Number(process.argv[3]) || startPage;
 const width = Number(process.argv[4]) || 1440;
