@@ -1,6 +1,9 @@
 import { createCanvas } from "@napi-rs/canvas";
 import { SURAH_HEADER_FONT } from "./font-loader";
-import { LineType, type GlyphBounds, type LineInput, type MeasuredLine } from "./types";
+import { ImageFormat, type CanvasMime, LineType, type GlyphBounds, type LineInput, type MeasuredLine } from "./types";
+
+const toMime = (fmt: ImageFormat): CanvasMime =>
+  fmt === ImageFormat.WebP ? "image/webp" : "image/png";
 
 // Arbitrary reference size for initial glyph measurement — actual fontSize is scaled from this
 const REF_SIZE = 100;
@@ -153,7 +156,8 @@ export const renderLine = (
   ld: MeasuredLine,
   withMarkers = false,
   page = 0,
-  showBounds = false
+  showBounds = false,
+  format = ImageFormat.PNG
 ): RenderLineResult => {
   const canvas = createCanvas(width, metrics.lineHeight);
   const ctx = canvas.getContext("2d");
@@ -208,14 +212,14 @@ export const renderLine = (
     }
   }
 
-  return { buffer: canvas.toBuffer("image/png"), bounds };
+  return { buffer: canvas.toBuffer(toMime(format)), bounds };
 };
 
 const BASMALA = "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ";
 
 // TODO: replace UthmanicHafs with a calligraphic Mushaf font matching the QPC style
-// Renders surah name centered as a standalone line PNG
-export const renderSurahHeader = (width: number, lineHeight: number, surahName: string): Buffer => {
+// Renders surah name centered as a standalone line image
+export const renderSurahHeader = (width: number, lineHeight: number, surahName: string, format = ImageFormat.PNG): Buffer => {
   const canvas = createCanvas(width, lineHeight);
   const ctx = canvas.getContext("2d");
   const fontSize = Math.floor(lineHeight * 0.45);
@@ -225,11 +229,11 @@ export const renderSurahHeader = (width: number, lineHeight: number, surahName: 
   ctx.textBaseline = "middle";
   ctx.direction = "rtl";
   ctx.fillText(`سُورَةُ ${surahName}`, width / 2, lineHeight / 2);
-  return canvas.toBuffer("image/png");
+  return canvas.toBuffer(toMime(format));
 };
 
-// Renders basmala centered as a standalone line PNG
-export const renderBasmala = (width: number, lineHeight: number): Buffer => {
+// Renders basmala centered as a standalone line image
+export const renderBasmala = (width: number, lineHeight: number, format = ImageFormat.PNG): Buffer => {
   const canvas = createCanvas(width, lineHeight);
   const ctx = canvas.getContext("2d");
   const fontSize = Math.floor(lineHeight * 0.45);
@@ -239,12 +243,12 @@ export const renderBasmala = (width: number, lineHeight: number): Buffer => {
   ctx.textBaseline = "middle";
   ctx.direction = "rtl";
   ctx.fillText(BASMALA, width / 2, lineHeight / 2);
-  return canvas.toBuffer("image/png");
+  return canvas.toBuffer(toMime(format));
 };
 
-// Blank transparent PNG at the standard line dimensions — used for empty slots in the 15-line grid
-export const renderBlankLine = (width: number, lineHeight: number): Buffer =>
-  createCanvas(width, lineHeight).toBuffer("image/png");
+// Blank transparent image at the standard line dimensions — used for empty slots in the 15-line grid
+export const renderBlankLine = (width: number, lineHeight: number, format = ImageFormat.PNG): Buffer =>
+  createCanvas(width, lineHeight).toBuffer(toMime(format));
 
 export interface RenderPageResult {
   buffer: Buffer;
@@ -260,7 +264,8 @@ export const renderFullPage = (
   page: number,
   withMarkers = false,
   showBounds = false,
-  surahNames?: readonly string[]
+  surahNames?: readonly string[],
+  format = ImageFormat.PNG
 ): RenderPageResult => {
   const height = Math.ceil(width * PHI);
   // Fixed font ratio matching standard Mushaf typesetting (page 270 needs slight adjustment)
@@ -349,5 +354,5 @@ export const renderFullPage = (
     }
   }
 
-  return { buffer: canvas.toBuffer("image/png"), bounds: allBounds };
+  return { buffer: canvas.toBuffer(toMime(format)), bounds: allBounds };
 };

@@ -18,6 +18,15 @@ export const FontVersion = {
 
 export type FontVersion = (typeof FontVersion)[keyof typeof FontVersion];
 
+export const ImageFormat = {
+  PNG: "png",
+  WebP: "webp",
+} as const;
+
+export type ImageFormat = (typeof ImageFormat)[keyof typeof ImageFormat];
+
+export type CanvasMime = "image/png" | "image/webp";
+
 // Pixel bounding box for a single glyph — links visual position to ayah identity
 export interface GlyphBounds {
   page: number;

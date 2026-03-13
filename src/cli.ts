@@ -1,6 +1,6 @@
 import path from "path";
 import { generate } from "./generator";
-import { FontVersion, RenderMode } from "./types";
+import { FontVersion, ImageFormat, RenderMode } from "./types";
 
 const ROOT = path.join(import.meta.dir, "..");
 
@@ -9,9 +9,11 @@ const startPage = Number(process.argv[2]) || 1;
 const endPage = Number(process.argv[3]) || startPage;
 const width = Number(process.argv[4]) || 1440;
 const mode = process.argv[5] === "page" ? RenderMode.Page : RenderMode.Line;
+const format = process.argv.includes("webp") ? ImageFormat.WebP : ImageFormat.PNG;
 const withMarkers = process.argv.includes("markers");
 const showBounds = process.argv.includes("bounds");
 const boundsJson = process.argv.includes("json");
+const quantizeAlpha = process.argv.includes("quantize");
 
 if (startPage < 1 || endPage > 604 || startPage > endPage) {
   console.error("Usage: bun src/cli.ts [startPage] [endPage] [width] [mode] [markers] [v1|v2]");
@@ -19,17 +21,19 @@ if (startPage < 1 || endPage > 604 || startPage > endPage) {
   process.exit(1);
 }
 
-console.log(`Rendering pages ${startPage}-${endPage} at ${width}px (${version}, ${mode} mode)...\n`);
+console.log(`Rendering pages ${startPage}-${endPage} at ${width}px (${version}, ${mode} mode, ${format})...\n`);
 
 const { count, boundsCount } = await generate({
   version,
   mode,
+  format,
   startPage,
   endPage,
   width,
   withMarkers,
   showBounds,
   boundsJson,
+  quantizeAlpha,
   outputDir: path.join(ROOT, "output"),
   dataDir: path.join(ROOT, "data"),
   onProgress: (page) => process.stdout.write(`\r  page ${page}/${endPage}`),
