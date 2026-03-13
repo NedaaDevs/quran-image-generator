@@ -127,7 +127,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
           boundsDb.writeBounds(bounds);
           if (opts.boundsJson) jsonBounds.push(...bounds);
           boundsCount += bounds.length;
-        } else if (lineInfo?.type === LineType.SurahHeader && lineInfo.surah_number) {
+        } else if (opts.withMarkers && lineInfo?.type === LineType.SurahHeader && lineInfo.surah_number) {
           await Bun.write(filePath, await optimize(renderSurahHeader(opts.width, lineHeight, lineInfo.surah_number, headerGlyphs, fmt)));
         } else if (lineInfo?.type === LineType.Basmala) {
           await Bun.write(filePath, await optimize(renderBasmala(opts.width, lineHeight, fontSize, fmt)));

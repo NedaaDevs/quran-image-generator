@@ -376,8 +376,8 @@ export const renderFullPage = (
           isMarker: g.isMarker ?? false,
         });
       }
-    } else if (lineInfo?.type === LineType.SurahHeader && lineInfo.surah_number) {
-      // Surah header — rendered with ornamental frame font
+    } else if (withMarkers && lineInfo?.type === LineType.SurahHeader && lineInfo.surah_number) {
+      // Surah header — only rendered in preview mode; apps overlay themed assets
       const glyph = headerGlyphs[`surah-${lineInfo.surah_number}`];
       if (glyph) {
         mx.font = `100px "${SURAH_HEADER_FONT}"`;
