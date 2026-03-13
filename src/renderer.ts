@@ -208,8 +208,8 @@ export const renderFullPage = (
   withMarkers = false
 ) => {
   const height = Math.ceil(width * PHI);
-  // Small horizontal margin for page mode — prevents text touching edges
-  const hPad = Math.floor(width * 0.02);
+  // No horizontal padding — matches quran.com (centering handles margins naturally)
+  const hPad = 0;
 
   // Fixed font ratio matching standard Mushaf typesetting (page 270 needs slight adjustment)
   const fontFactor = page === 270 ? 22.5 : 21;
@@ -226,22 +226,8 @@ export const renderFullPage = (
     return { ...l, glyphs: measured, total };
   });
 
-  // Page-level ascent/descent
-  let ascent = 0;
-  let descent = 0;
-  for (const ld of lineData) {
-    for (const g of ld.glyphs) {
-      const m = mx.measureText(g.text_qpc);
-      ascent = Math.max(ascent, m.actualBoundingBoxAscent);
-      descent = Math.max(descent, m.actualBoundingBoxDescent);
-    }
-  }
-
-  const lineHeight = Math.ceil(ascent + descent);
-
-  // Pages 1-2 (Al-Fatiha, Al-Baqarah opening) have fewer lines with wider spacing
-  const spacingFactor = (page === 1 || page === 2) ? PHI : 1;
-  const lineSpacing = Math.ceil(lineHeight * spacingFactor);
+  // Font-level ascent (GD's char_up): 2 * charUp * 15 lines + margin ≈ page height
+  const charUp = mx.measureText("\u0020").fontBoundingBoxAscent;
 
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
@@ -249,16 +235,29 @@ export const renderFullPage = (
   ctx.fillStyle = "#000000";
   ctx.textBaseline = "alphabetic";
 
-  // Center content block vertically on the page
-  const visibleLines = lineData.filter((ld) => ld.glyphs.length > 0);
-  const totalContentHeight = visibleLines.length * lineSpacing;
-  let y = Math.floor((height - totalContentHeight) / 2);
+  // Start with margin_top = fontSize / 2 (matches quran.com)
+  let coordY = fontSize / 2;
 
   for (const ld of lineData) {
     if (ld.glyphs.length === 0) continue;
-    const baseline = y + Math.floor((lineSpacing + ascent - descent) / 2);
-    drawLine(ctx, fontFamily, fontSize, width, hPad, ld, baseline, withMarkers);
-    y += lineSpacing;
+
+    // First line: advance past ascent so text doesn't clip top edge
+    if (coordY <= fontSize / 2) {
+      coordY += charUp;
+    }
+
+    const baseline = coordY;
+    drawLine(ctx, fontFamily, fontSize, width, hPad, ld, baseline, withMarkers, false);
+
+    // Advance Y — no descent subtraction because GD's char_down is 0 for QCF fonts
+    // (GD::Text measures 'Mj' which isn't in QCF fonts, so bbox returns 0)
+    if (page === 1 || page === 2) {
+      // Pages 1-2: PHI * char_up (golden ratio spacing for Al-Fatiha / Al-Baqarah opening)
+      coordY += PHI * charUp;
+    } else {
+      // Standard pages: 2 * char_up (matches quran.com line spacing)
+      coordY += 2 * charUp;
+    }
   }
 
   return canvas.toBuffer("image/png");

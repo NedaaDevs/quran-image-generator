@@ -18,8 +18,7 @@ export const createBoundsDb = (dbPath: string) => {
     y INTEGER NOT NULL,
     width INTEGER NOT NULL,
     height INTEGER NOT NULL,
-    is_marker INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (page, line, position)
+    is_marker INTEGER NOT NULL DEFAULT 0
   )`);
   db.run("CREATE INDEX idx_bounds_page ON glyph_bounds(page)");
   db.run("CREATE INDEX idx_bounds_ayah ON glyph_bounds(surah_number, ayah_number)");
