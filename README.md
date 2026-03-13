@@ -1,5 +1,9 @@
 # Quran Image Generator
 
+[![CI](https://github.com/NedaaDevs/quran-image-generator/actions/workflows/ci.yml/badge.svg)](https://github.com/NedaaDevs/quran-image-generator/actions/workflows/ci.yml)
+[![Release](https://github.com/NedaaDevs/quran-image-generator/actions/workflows/release.yml/badge.svg)](https://github.com/NedaaDevs/quran-image-generator/actions/workflows/release.yml)
+[![Assets](https://img.shields.io/github/v/release/NedaaDevs/quran-image-generator?filter=assets&label=assets)](https://github.com/NedaaDevs/quran-image-generator/releases/tag/assets)
+
 > **Warning:** This project is under active development and has **not been proofread** against a printed Mushaf. Do not use the output for production or distribution without thorough verification.
 
 A CLI tool that generates per-line and per-page PNG/WebP images of the Quran using QCF (Quran Complex Font) page fonts.
