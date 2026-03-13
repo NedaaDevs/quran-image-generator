@@ -1,5 +1,6 @@
 import { mkdirSync } from "fs";
 import path from "path";
+import type { GlyphBounds } from "./types";
 import { createBoundsDb } from "./bounds-db";
 import { createDb } from "./database";
 import { registerPageFont } from "./font-loader";
@@ -14,6 +15,7 @@ export interface GeneratorOptions {
   width: number;
   withMarkers: boolean;
   showBounds: boolean;
+  boundsJson: boolean;
   outputDir: string;
   dataDir: string;
   onProgress?: (page: number, total: number) => void;
@@ -36,6 +38,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 
   let count = 0;
   let boundsCount = 0;
+  const jsonBounds: GlyphBounds[] = [];
 
   for (let page = opts.startPage; page <= opts.endPage; page++) {
     const fontFamily = registerPageFont(fontsDir, page, opts.version);
@@ -51,6 +54,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
       mkdirSync(outDir, { recursive: true });
       await Bun.write(path.join(outDir, `${page}.png`), buffer);
       boundsDb.writeBounds(bounds);
+      if (opts.boundsJson) jsonBounds.push(...bounds);
       boundsCount += bounds.length;
       count++;
     } else {
@@ -71,6 +75,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
           );
           await Bun.write(path.join(outDir, `${lineNum}.png`), buffer);
           boundsDb.writeBounds(bounds);
+          if (opts.boundsJson) jsonBounds.push(...bounds);
           boundsCount += bounds.length;
         } else {
           await Bun.write(path.join(outDir, `${lineNum}.png`), blankPng);
@@ -84,6 +89,12 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 
   boundsDb.commit();
   boundsDb.close();
+
+  if (opts.boundsJson && jsonBounds.length > 0) {
+    const jsonPath = path.join(opts.outputDir, opts.version, "bounds", `${opts.width}.json`);
+    await Bun.write(jsonPath, JSON.stringify(jsonBounds));
+  }
+
   db.close();
   return { count, boundsCount };
 };

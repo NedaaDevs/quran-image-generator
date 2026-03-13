@@ -11,6 +11,7 @@ const width = Number(process.argv[4]) || 1440;
 const mode = process.argv[5] === "page" ? RenderMode.Page : RenderMode.Line;
 const withMarkers = process.argv.includes("markers");
 const showBounds = process.argv.includes("bounds");
+const boundsJson = process.argv.includes("json");
 
 if (startPage < 1 || endPage > 604 || startPage > endPage) {
   console.error("Usage: bun src/cli.ts [startPage] [endPage] [width] [mode] [markers] [v1|v2]");
@@ -28,6 +29,7 @@ const { count, boundsCount } = await generate({
   width,
   withMarkers,
   showBounds,
+  boundsJson,
   outputDir: path.join(ROOT, "output"),
   dataDir: path.join(ROOT, "data"),
   onProgress: (page) => process.stdout.write(`\r  page ${page}/${endPage}`),
