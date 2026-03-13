@@ -215,7 +215,9 @@ export const renderLine = (
   return { buffer: canvas.toBuffer(toMime(format)), bounds };
 };
 
-const BASMALA = "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ";
+// Set by generator after loading basmala glyph codes from DB (page 1, line 2)
+let BASMALA_TEXT = "";
+export const setBasmalaText = (text: string) => { BASMALA_TEXT = text; };
 
 // Composites ornamental frame + version-matched surah name (ligature font)
 export const renderSurahHeader = (
@@ -326,8 +328,7 @@ export const renderAyahMarker = (
   return canvas.toBuffer(toMime(format));
 };
 
-// TODO: find proper basmala glyph codes per page font — UthmanicHafs is a style mismatch with QPC text
-// Renders basmala centered as a standalone line image
+// Renders basmala centered using QCF page 1 font glyphs — matches the version's calligraphic style
 export const renderBasmala = (width: number, lineHeight: number, fontSize: number, format = ImageFormat.PNG): Buffer => {
   const canvas = createCanvas(width, lineHeight);
   const ctx = canvas.getContext("2d");
@@ -336,7 +337,7 @@ export const renderBasmala = (width: number, lineHeight: number, fontSize: numbe
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.direction = "rtl";
-  ctx.fillText(BASMALA, width / 2, lineHeight / 2);
+  ctx.fillText(BASMALA_TEXT, width / 2, lineHeight / 2);
   return canvas.toBuffer(toMime(format));
 };
 
@@ -445,7 +446,7 @@ export const renderFullPage = (
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.direction = "rtl";
-      ctx.fillText(BASMALA, width / 2, y + lineHeight / 2);
+      ctx.fillText(BASMALA_TEXT, width / 2, y + lineHeight / 2);
     }
     // Empty slots / skipped decorative lines stay transparent
 

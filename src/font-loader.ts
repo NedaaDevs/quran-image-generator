@@ -7,6 +7,8 @@ import type { FontVersion } from "./types";
 export const SURAH_NAME_FONT = "SurahName";
 // Surah header font renders ornamental frame per surah via Unicode codepoints
 export const SURAH_HEADER_FONT = "SurahHeader";
+// Basmala uses page 1's QCF font — same calligraphic style as the page text
+export const BASMALA_FONT = "Basmala";
 
 const registeredFonts = new Set<string>();
 
@@ -17,13 +19,11 @@ const registerFont = (fontPath: string, family: string) => {
   registeredFonts.add(family);
 };
 
-// TODO: check if QPC page fonts have basmala glyphs — may be able to drop UthmanicHafs
-export const BASMALA_FONT = "UthmanicHafs";
-
 export const registerSurahFonts = (dataDir: string, version: FontVersion) => {
   registerFont(path.join(dataDir, "common", "fonts", `surah-name-${version}.ttf`), SURAH_NAME_FONT);
   registerFont(path.join(dataDir, "common", "fonts", "surah-header.ttf"), SURAH_HEADER_FONT);
-  registerFont(path.join(dataDir, "common", "fonts", "UthmanicHafs.ttf"), BASMALA_FONT);
+  // Page 1 font contains basmala glyphs matching the version's calligraphic style
+  registerFont(path.join(dataDir, version, "fonts", "p1.ttf"), BASMALA_FONT);
 };
 
 export const registerPageFont = (fontsDir: string, page: number, version: FontVersion) => {

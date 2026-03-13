@@ -6,7 +6,7 @@ import type { GlyphBounds } from "./types";
 import { createBoundsDb, type LineMetadata } from "./bounds-db";
 import { createDb, loadSurahMeta } from "./database";
 import { registerPageFont, registerSurahFonts } from "./font-loader";
-import { measurePage, renderLine, renderBlankLine, renderSurahHeader, renderSurahName, renderSurahFrame, renderAyahMarker, renderBasmala, renderFullPage } from "./renderer";
+import { measurePage, renderLine, renderBlankLine, renderSurahHeader, renderSurahName, renderSurahFrame, renderAyahMarker, renderBasmala, renderFullPage, setBasmalaText } from "./renderer";
 import { ImageFormat, LINES_PER_PAGE, LineType, RenderMode, type FontVersion } from "./types";
 
 export interface GeneratorOptions {
@@ -37,6 +37,10 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
   const db = createDb(dbPath);
   const surahMeta = loadSurahMeta(opts.dataDir, opts.version);
   registerSurahFonts(opts.dataDir, opts.version);
+
+  // Basmala glyph codes from page 1 line 2 (ayah 1:1) — split markers to exclude ayah number
+  const basWords = db.getLineGlyphs(1, 2, true);
+  setBasmalaText(basWords.filter((w) => !w.isMarker).map((w) => w.text_qpc).join(""));
 
   // Surah header font codepoint mapping (surah-N → Unicode glyph)
   const headerGlyphsPath = path.join(opts.dataDir, "common", "surah-header-ligatures.json");
