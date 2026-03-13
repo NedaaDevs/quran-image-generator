@@ -68,13 +68,14 @@ jobs:
             (cd data && unzip -o -q "${v}.zip" && rm "${v}.zip")
           done
 
-      - name: Build binary with embedded assets
+      - name: Package assets zip
         run: |
-          assets="data/common/**/*"
-          for v in ${{ matrix.versions }}; do
-            assets="$assets data/${v}/**/*"
-          done
-          bun build src/cli.ts $assets --compile --target=${{ matrix.target }} --outfile ${{ matrix.artifact }}
+          dirs="common"
+          for v in ${{ matrix.versions }}; do dirs="$dirs $v"; done
+          (cd data && zip -r -q ../assets.zip $dirs)
+
+      - name: Build binary with embedded assets
+        run: bun build src/cli.ts assets.zip --compile --target=${{ matrix.target }} --outfile ${{ matrix.artifact }}
 
       - uses: actions/upload-artifact@v4
         with:

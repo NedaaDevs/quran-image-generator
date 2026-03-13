@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { generate } from "./generator";
 import { promptOptions } from "./interactive";
@@ -7,6 +7,32 @@ import { FontVersion, ImageFormat, RenderMode } from "./types";
 // Compiled binary uses $bunfs virtual filesystem — resolve paths from the executable location
 const isCompiled = import.meta.dir.includes("$bunfs");
 const ROOT = isCompiled ? path.dirname(process.execPath) : path.join(import.meta.dir, "..");
+
+// Embedded at compile time — resolves to $bunfs path in binary, real path in dev
+let assetsZip: string | undefined;
+try {
+	assetsZip = require("../assets.zip");
+} catch {}
+
+// Extract embedded assets on first run (compiled binary only)
+if (isCompiled && assetsZip && !existsSync(path.join(ROOT, "data", "common"))) {
+	const dataDir = path.join(ROOT, "data");
+	console.log("Extracting embedded assets...");
+	mkdirSync(dataDir, { recursive: true });
+	// Copy from $bunfs to temp file — unzip can't read virtual filesystem directly
+	const tmpZip = path.join(dataDir, "_assets.zip");
+	await Bun.write(tmpZip, Bun.file(assetsZip));
+	const proc = Bun.spawn(["unzip", "-o", "-q", tmpZip, "-d", dataDir], {
+		stdout: "ignore",
+		stderr: "pipe",
+	});
+	if ((await proc.exited) !== 0) {
+		console.error("Failed to extract assets");
+		process.exit(1);
+	}
+	unlinkSync(tmpZip);
+	console.log("Done.\n");
+}
 
 const hasArgs = process.argv.length > 2;
 

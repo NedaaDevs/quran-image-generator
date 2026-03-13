@@ -1,7 +1,13 @@
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { losslessCompressPng } from "@napi-rs/image";
-import sharp from "sharp";
+
+// Sharp is optional — only needed for alpha quantization (smaller PNGs)
+let sharp: typeof import("sharp") | undefined;
+try {
+	sharp = require("sharp");
+} catch {}
+
 import { createBoundsDb, type LineMetadata } from "./bounds-db";
 import { createDb, loadSurahMeta } from "./database";
 import { registerPageFont, registerSurahFonts } from "./font-loader";
@@ -66,6 +72,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 
 	// Reduces anti-aliasing alpha from ~210 levels to 16, drastically improving PNG compression
 	const quantizeAlpha = async (buf: Buffer): Promise<Buffer> => {
+		if (!sharp) return buf;
 		const { data, info } = await sharp(buf).raw().toBuffer({ resolveWithObject: true });
 		const step = 255 / 15;
 		for (let i = 3; i < data.length; i += 4) {
