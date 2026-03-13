@@ -112,10 +112,16 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
       const lineTypeMap = new Map(lines.map((l) => [l.line, l]));
       const blankImg = await optimize(renderBlankLine(opts.width, lineHeight, fmt));
 
+      // Center content vertically on pages with fewer than 15 lines (e.g. pages 1-2)
+      const contentCount = lines.length;
+      const centerOffset = contentCount < LINES_PER_PAGE ? Math.floor((LINES_PER_PAGE - contentCount) / 2) : 0;
+
       // Always output full grid — blank images for empty slots
       for (let lineNum = 1; lineNum <= LINES_PER_PAGE; lineNum++) {
-        const ld = lineMap.get(lineNum);
-        const lineInfo = lineTypeMap.get(lineNum);
+        // Map output slot to source line (shifted by centering offset)
+        const srcLine = lineNum - centerOffset;
+        const ld = lineMap.get(srcLine);
+        const lineInfo = lineTypeMap.get(srcLine);
         const filePath = path.join(outDir, `${pad(lineNum, 2)}.${ext}`);
 
         if (ld && ld.glyphs.length > 0) {

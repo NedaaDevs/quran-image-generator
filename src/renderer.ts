@@ -349,9 +349,13 @@ export const renderFullPage = (
   const lineTypeMap = new Map(lines.map((l) => [l.line, l]));
   const allBounds: GlyphBounds[] = [];
 
+  // Center content vertically on pages with fewer than 15 lines (e.g. pages 1-2)
+  const centerOffset = lines.length < LINES_PER_PAGE ? Math.floor((LINES_PER_PAGE - lines.length) / 2) : 0;
+
   for (let lineNum = 1; lineNum <= LINES_PER_PAGE; lineNum++) {
-    const ld = lineMap.get(lineNum);
-    const lineInfo = lineTypeMap.get(lineNum);
+    const srcLine = lineNum - centerOffset;
+    const ld = lineMap.get(srcLine);
+    const lineInfo = lineTypeMap.get(srcLine);
     const y = (lineNum - 1) * lineHeight;
 
     ctx.save();
