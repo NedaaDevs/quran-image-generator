@@ -25,9 +25,19 @@ bun run src/cli.ts
 
 ## Credits
 
+### Tarteel AI — Quranic Universal Library (QUL)
+
+Special thanks to [Tarteel AI](https://tarteel.ai/) for their [Quranic Universal Library](https://qul.tarteel.ai/), which provides the essential data powering this tool:
+
+- **QCF font files** — per-page V1 and V2 glyph fonts
+- **Word-by-word glyph codes** — mapping each Quranic word to its QCF code point
+- **Mushaf layout data** — authoritative page/line/word mapping for both the 1405H (V1) and 1423H (V2) Madinah Mushaf editions
+
+### Other Credits
+
 - [quran.com-images](https://github.com/quran/quran.com-images) — inspiration and original approach
-- [Quranic Universal Library (QUL)](https://qul.tarteel.ai/) — fonts and glyph scripts
-- [King Fahd Quran Complex](https://qurancomplex.gov.sa/) — original QCF font files
+- [King Fahd Quran Printing Complex](https://qurancomplex.gov.sa/) — the original Madinah Mushaf calligraphy by Uthman Taha
+- [tanzil.net](https://tanzil.net/) — Quran metadata
 
 ## License
 
