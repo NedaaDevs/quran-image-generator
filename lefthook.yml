@@ -1,0 +1,7 @@
+pre-commit:
+  parallel: true
+  jobs:
+    - name: biome
+      run: bunx biome check --write --staged {staged_files}
+      glob: "*.{ts,json}"
+      stage_fixed: true
