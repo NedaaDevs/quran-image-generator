@@ -10,6 +10,7 @@ const endPage = Number(process.argv[3]) || startPage;
 const width = Number(process.argv[4]) || 1440;
 const mode = process.argv[5] === "page" ? RenderMode.Page : RenderMode.Line;
 const withMarkers = process.argv.includes("markers");
+const showBounds = process.argv.includes("bounds");
 
 if (startPage < 1 || endPage > 604 || startPage > endPage) {
   console.error("Usage: bun src/cli.ts [startPage] [endPage] [width] [mode] [markers] [v1|v2]");
@@ -19,17 +20,27 @@ if (startPage < 1 || endPage > 604 || startPage > endPage) {
 
 console.log(`Rendering pages ${startPage}-${endPage} at ${width}px (${version}, ${mode} mode)...\n`);
 
-const totalCount = await generate({
+const { count, bounds } = await generate({
   version,
   mode,
   startPage,
   endPage,
   width,
   withMarkers,
+  showBounds,
   outputDir: path.join(ROOT, "output"),
   dataDir: path.join(ROOT, "data"),
   onProgress: (page) => process.stdout.write(`\r  page ${page}/${endPage}`),
 });
 
+// Write bounds JSON alongside rendered images
+if (bounds.length > 0) {
+  const boundsPath = path.join(ROOT, "output", version, "bounds", `${width}.json`);
+  const { mkdirSync } = await import("fs");
+  mkdirSync(path.dirname(boundsPath), { recursive: true });
+  await Bun.write(boundsPath, JSON.stringify(bounds));
+  console.log(`\n  Bounds: ${boundsPath} (${bounds.length} glyphs)`);
+}
+
 const label = mode === RenderMode.Page ? "pages" : "lines";
-console.log(`\n\nDone — ${totalCount} ${label} across ${endPage - startPage + 1} pages`);
+console.log(`\nDone — ${count} ${label} across ${endPage - startPage + 1} pages`);
