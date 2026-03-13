@@ -51,6 +51,15 @@ bun build src/cli.ts --compile --outfile quran-gen
 ./quran-gen 1 604 1440 line v2
 ```
 
+## Markers mode
+
+By default, images include ayah end markers (ornamental numbered circles) and surah header frames rendered with the page font. Use `no-markers` to omit decorative elements — useful for apps that overlay their own themed markers:
+
+- **With markers** — full preview with ornamental ayah markers and surah header frames baked into the image
+- **Without markers** — text only, plus version-matched surah names (no frame). Apps can overlay custom-themed markers using glyph positions from `bounds.db`
+
+The surah frame template is exported separately to `markers/surah-frame.png` for apps to composite with their own styling.
+
 ## Output structure
 
 ```
