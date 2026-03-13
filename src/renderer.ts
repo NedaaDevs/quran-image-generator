@@ -61,7 +61,7 @@ export const measurePage = (fontFamily: string, lines: LineInput[], width: numbe
 const isSpecial = (type: LineType) => type === LineType.SurahHeader || type === LineType.Basmala;
 
 // Glyph-by-glyph render enables inter-word gap adjustment for justification
-const _drawLine = (
+const drawLine = (
 	ctx: ReturnType<ReturnType<typeof createCanvas>["getContext"]>,
 	fontFamily: string,
 	fontSize: number,
@@ -143,8 +143,7 @@ export interface RenderLineResult {
 }
 
 // Renders a single line as a standalone PNG — full-string centered rendering.
-// Unlike drawLine (glyph-by-glyph), this lets the font engine handle kerning/spacing natively.
-// Calculates per-glyph bounds using substring measurement for accurate hit areas.
+// Renders a single line as a standalone image using glyph-by-glyph justified layout.
 export const renderLine = (
 	fontFamily: string,
 	fontSize: number,
@@ -162,42 +161,11 @@ export const renderLine = (
 	ctx.fillStyle = "#000000";
 	ctx.textBaseline = "alphabetic";
 	ctx.direction = "rtl";
-	ctx.textAlign = "center";
-
-	// Draw text without markers; bounds are always computed for ALL glyphs
-	// so the app can position marker overlays from bounds data
-	const drawGlyphs = ld.glyphs.filter((g) => withMarkers || !g.isMarker);
-	const lineText = drawGlyphs.map((g) => g.text_qpc).join("");
 
 	const baseline = Math.floor((metrics.lineHeight + metrics.ascent - metrics.descent) / 2);
-	ctx.fillText(lineText, width / 2, baseline);
 
-	// QCF fonts use one code point per word — no inter-glyph kerning to worry about
-	const allGlyphs = ld.glyphs;
-	const fullText = allGlyphs.map((g) => g.text_qpc).join("");
-	const fullWidth = ctx.measureText(fullText).width;
-
-	const bounds: GlyphBounds[] = [];
-	let cursorX = (width + fullWidth) / 2;
-
-	for (const g of allGlyphs) {
-		const gm = ctx.measureText(g.text_qpc);
-		const glyphW = gm.width;
-		cursorX -= glyphW;
-
-		bounds.push({
-			page,
-			line: ld.line,
-			position: g.position,
-			surahNumber: g.surahNumber,
-			ayahNumber: g.ayahNumber,
-			x: Math.round(cursorX),
-			y: Math.round(baseline - gm.actualBoundingBoxAscent),
-			width: Math.round(glyphW),
-			height: Math.round(gm.actualBoundingBoxAscent + gm.actualBoundingBoxDescent),
-			isMarker: g.isMarker ?? false,
-		});
-	}
+	// Use glyph-by-glyph justified layout — same as page mode, prevents marker overlap
+	const bounds = drawLine(ctx, fontFamily, fontSize, width, ld, baseline, page, withMarkers);
 
 	// Draw semi-transparent colored rectangles over each glyph for visual validation
 	if (showBounds) {
@@ -262,7 +230,7 @@ export const renderSurahName = (
 ): Buffer => {
 	const canvas = createCanvas(width, lineHeight);
 	const ctx = canvas.getContext("2d");
-	const fontSize = Math.floor(lineHeight * 0.45);
+	const fontSize = Math.floor(lineHeight * 0.65);
 	ctx.font = `${fontSize}px "${SURAH_NAME_FONT}"`;
 	ctx.fillStyle = "#000000";
 	ctx.textBaseline = "middle";
