@@ -303,6 +303,29 @@ export const renderSurahFrame = (width: number, lineHeight: number, headerGlyphs
   return c.toBuffer(toMime(format));
 };
 
+// Renders a standalone end-of-ayah marker circle (no number) for theme overlay use
+export const renderAyahMarker = (
+  width: number,
+  lineHeight: number,
+  format = ImageFormat.PNG
+): Buffer => {
+  const size = lineHeight;
+  const canvas = createCanvas(size, size);
+  const ctx = canvas.getContext("2d");
+
+  const cx = size / 2;
+  const cy = size / 2;
+  const radius = size * 0.35;
+
+  ctx.strokeStyle = "#000000";
+  ctx.lineWidth = Math.max(1, size * 0.02);
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.stroke();
+
+  return canvas.toBuffer(toMime(format));
+};
+
 // TODO: find proper basmala glyph codes per page font — UthmanicHafs is a style mismatch with QPC text
 // Renders basmala centered as a standalone line image
 export const renderBasmala = (width: number, lineHeight: number, fontSize: number, format = ImageFormat.PNG): Buffer => {

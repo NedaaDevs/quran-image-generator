@@ -21,9 +21,9 @@ const registerFont = (fontPath: string, family: string) => {
 export const BASMALA_FONT = "UthmanicHafs";
 
 export const registerSurahFonts = (dataDir: string, version: FontVersion) => {
-  registerFont(path.join(dataDir, "fonts", `surah-name-${version}.ttf`), SURAH_NAME_FONT);
-  registerFont(path.join(dataDir, "fonts", "surah-header.ttf"), SURAH_HEADER_FONT);
-  registerFont(path.join(dataDir, "fonts", "UthmanicHafs.ttf"), BASMALA_FONT);
+  registerFont(path.join(dataDir, "common", "fonts", `surah-name-${version}.ttf`), SURAH_NAME_FONT);
+  registerFont(path.join(dataDir, "common", "fonts", "surah-header.ttf"), SURAH_HEADER_FONT);
+  registerFont(path.join(dataDir, "common", "fonts", "UthmanicHafs.ttf"), BASMALA_FONT);
 };
 
 export const registerPageFont = (fontsDir: string, page: number, version: FontVersion) => {

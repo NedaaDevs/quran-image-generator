@@ -6,7 +6,7 @@ import type { GlyphBounds } from "./types";
 import { createBoundsDb, type LineMetadata } from "./bounds-db";
 import { createDb, loadSurahMeta } from "./database";
 import { registerPageFont, registerSurahFonts } from "./font-loader";
-import { measurePage, renderLine, renderBlankLine, renderSurahHeader, renderSurahName, renderSurahFrame, renderBasmala, renderFullPage } from "./renderer";
+import { measurePage, renderLine, renderBlankLine, renderSurahHeader, renderSurahName, renderSurahFrame, renderAyahMarker, renderBasmala, renderFullPage } from "./renderer";
 import { ImageFormat, LINES_PER_PAGE, LineType, RenderMode, type FontVersion } from "./types";
 
 export interface GeneratorOptions {
@@ -31,14 +31,14 @@ export interface GeneratorResult {
 }
 
 export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult> => {
-  const dbPath = path.join(opts.dataDir, opts.version, "db", "quran-layout.db");
+  const dbPath = path.join(opts.dataDir, opts.version, "quran-layout.db");
   const fontsDir = path.join(opts.dataDir, opts.version, "fonts");
   const db = createDb(dbPath);
-  const surahMeta = loadSurahMeta(opts.dataDir);
+  const surahMeta = loadSurahMeta(opts.dataDir, opts.version);
   registerSurahFonts(opts.dataDir, opts.version);
 
   // Surah header font codepoint mapping (surah-N → Unicode glyph)
-  const headerGlyphsPath = path.join(opts.dataDir, "fonts", "surah-header-ligatures.json");
+  const headerGlyphsPath = path.join(opts.dataDir, "common", "surah-header-ligatures.json");
   const headerGlyphs: Record<string, string> = JSON.parse(await Bun.file(headerGlyphsPath).text());
 
   const fmt = opts.format;
@@ -64,7 +64,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
   const pad = (n: number, len: number) => String(n).padStart(len, "0");
 
   // Bounds written to SQLite for efficient per-page/ayah queries at runtime
-  const boundsDbPath = path.join(opts.outputDir, opts.version, "bounds.db");
+  const boundsDbPath = path.join(opts.outputDir, opts.version, String(opts.width), "bounds.db");
   const boundsDb = createBoundsDb(boundsDbPath);
   boundsDb.begin();
 
@@ -96,7 +96,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 
     if (opts.mode === RenderMode.Page) {
       const { buffer, bounds } = renderFullPage(fontFamily, lineInputs, opts.width, page, opts.withMarkers, opts.showBounds, headerGlyphs, fmt);
-      const outDir = path.join(opts.outputDir, opts.version, "pages");
+      const outDir = path.join(opts.outputDir, opts.version, String(opts.width), "pages");
       mkdirSync(outDir, { recursive: true });
       await Bun.write(path.join(outDir, `${pad(page, 3)}.${ext}`), await optimize(buffer));
       boundsDb.writeBounds(bounds);
@@ -105,7 +105,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
       count++;
     } else {
       const { lineData, fontSize, lineHeight, ascent, descent } = measurePage(fontFamily, lineInputs, opts.width);
-      const outDir = path.join(opts.outputDir, opts.version, "lines", pad(page, 3));
+      const outDir = path.join(opts.outputDir, opts.version, String(opts.width), "lines", pad(page, 3));
       mkdirSync(outDir, { recursive: true });
 
       const lineMap = new Map(lineData.map((ld) => [ld.line, ld]));
@@ -122,7 +122,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
         const srcLine = lineNum - centerOffset;
         const ld = lineMap.get(srcLine);
         const lineInfo = lineTypeMap.get(srcLine);
-        const filePath = path.join(outDir, `${pad(lineNum, 2)}.${ext}`);
+        const filePath = path.join(outDir, `${pad(lineNum, 3)}.${ext}`);
 
         if (ld && ld.glyphs.length > 0) {
           const { buffer, bounds } = renderLine(
@@ -156,17 +156,21 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
   boundsDb.close();
 
   if (opts.boundsJson && jsonBounds.length > 0) {
-    const jsonPath = path.join(opts.outputDir, opts.version, "bounds.json");
+    const jsonPath = path.join(opts.outputDir, opts.version, String(opts.width), "bounds.json");
     await Bun.write(jsonPath, JSON.stringify(jsonBounds));
   }
 
-  // Generate reusable surah frame (ornamental border without text) once per version
+  // Generate reusable marker templates (ornamental assets for theme overlays)
   const lineHeight = Math.round(opts.width * 232 / 1440);
-  const frameDir = path.join(opts.outputDir, opts.version);
-  mkdirSync(frameDir, { recursive: true });
+  const markersDir = path.join(opts.outputDir, opts.version, String(opts.width), "markers");
+  mkdirSync(markersDir, { recursive: true });
   await Bun.write(
-    path.join(frameDir, `surah-frame.${ext}`),
+    path.join(markersDir, `surah-frame.${ext}`),
     await optimize(renderSurahFrame(opts.width, lineHeight, headerGlyphs, fmt))
+  );
+  await Bun.write(
+    path.join(markersDir, `ayah-marker.${ext}`),
+    await optimize(renderAyahMarker(opts.width, lineHeight, fmt))
   );
 
   db.close();
