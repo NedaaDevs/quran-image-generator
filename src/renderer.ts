@@ -1,6 +1,6 @@
 import { createCanvas } from "@napi-rs/canvas";
-import { SURAH_HEADER_FONT } from "./font-loader";
-import { ImageFormat, type CanvasMime, LineType, type GlyphBounds, type LineInput, type MeasuredLine } from "./types";
+import { SURAH_NAME_FONT, SURAH_HEADER_FONT, BASMALA_FONT } from "./font-loader";
+import { ImageFormat, type CanvasMime, LINES_PER_PAGE, LineType, type GlyphBounds, type LineInput, type MeasuredLine } from "./types";
 
 const toMime = (fmt: ImageFormat): CanvasMime =>
   fmt === ImageFormat.WebP ? "image/webp" : "image/png";
@@ -217,27 +217,87 @@ export const renderLine = (
 
 const BASMALA = "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ";
 
-// TODO: replace UthmanicHafs with a calligraphic Mushaf font matching the QPC style
-// Renders surah name centered as a standalone line image
-export const renderSurahHeader = (width: number, lineHeight: number, surahName: string, format = ImageFormat.PNG): Buffer => {
+// Renders full surah header (ornamental frame + surah name) using the header font
+// Each surah has a unique codepoint that renders frame + name as one glyph
+export const renderSurahHeader = (
+  width: number, lineHeight: number, surahNumber: number,
+  headerGlyphs: Record<string, string>, format = ImageFormat.PNG
+): Buffer => {
   const canvas = createCanvas(width, lineHeight);
   const ctx = canvas.getContext("2d");
-  const fontSize = Math.floor(lineHeight * 0.45);
-  ctx.font = `${fontSize}px "${SURAH_HEADER_FONT}"`;
-  ctx.fillStyle = "#000000";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.direction = "rtl";
-  ctx.fillText(`سُورَةُ ${surahName}`, width / 2, lineHeight / 2);
+  const glyph = headerGlyphs[`surah-${surahNumber}`];
+  if (glyph) {
+    // Size to span full line width
+    mx.font = `100px "${SURAH_HEADER_FONT}"`;
+    const refW = mx.measureText(glyph.trim()).width;
+    const fontSize = Math.floor(100 * width / refW);
+    ctx.font = `${fontSize}px "${SURAH_HEADER_FONT}"`;
+    ctx.fillStyle = "#000000";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(glyph.trim(), width / 2, lineHeight / 2);
+  }
   return canvas.toBuffer(toMime(format));
 };
 
-// Renders basmala centered as a standalone line image
-export const renderBasmala = (width: number, lineHeight: number, format = ImageFormat.PNG): Buffer => {
+// Renders surah name only (no frame) using ligature font
+export const renderSurahName = (width: number, lineHeight: number, surahNumber: number, format = ImageFormat.PNG): Buffer => {
   const canvas = createCanvas(width, lineHeight);
   const ctx = canvas.getContext("2d");
   const fontSize = Math.floor(lineHeight * 0.45);
-  ctx.font = `${fontSize}px "${SURAH_HEADER_FONT}"`;
+  const ligature = `surah${String(surahNumber).padStart(3, "0")}`;
+  ctx.font = `${fontSize}px "${SURAH_NAME_FONT}"`;
+  ctx.fillStyle = "#000000";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(ligature, width / 2, lineHeight / 2);
+  return canvas.toBuffer(toMime(format));
+};
+
+// Extracts the ornamental frame by diffing 3 surah headers to isolate shared pixels
+export const renderSurahFrame = (width: number, lineHeight: number, headerGlyphs: Record<string, string>, format = ImageFormat.PNG): Buffer => {
+  const render = (key: string) => {
+    const glyph = (headerGlyphs[key] ?? "").trim();
+    mx.font = `100px "${SURAH_HEADER_FONT}"`;
+    const refW = mx.measureText(glyph).width;
+    const fontSize = Math.floor(100 * width / refW);
+    const c = createCanvas(width, lineHeight);
+    const ctx = c.getContext("2d");
+    ctx.font = `${fontSize}px "${SURAH_HEADER_FONT}"`;
+    ctx.fillStyle = "#000000";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(glyph, width / 2, lineHeight / 2);
+    return ctx.getImageData(0, 0, width, lineHeight).data;
+  };
+
+  // 3 surahs with different name lengths for clean extraction
+  const d1 = render("surah-1");
+  const d2 = render("surah-10");
+  const d3 = render("surah-19");
+
+  const c = createCanvas(width, lineHeight);
+  const ctx = c.getContext("2d");
+  const imgData = ctx.createImageData(width, lineHeight);
+  for (let i = 0; i < d1.length; i += 4) {
+    if (d1[i] === d2[i] && d2[i] === d3[i] &&
+        d1[i+1] === d2[i+1] && d2[i+1] === d3[i+1] &&
+        d1[i+2] === d2[i+2] && d2[i+2] === d3[i+2] &&
+        d1[i+3] === d2[i+3] && d2[i+3] === d3[i+3]) {
+      imgData.data[i] = d1[i]; imgData.data[i+1] = d1[i+1];
+      imgData.data[i+2] = d1[i+2]; imgData.data[i+3] = d1[i+3];
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+  return c.toBuffer(toMime(format));
+};
+
+// TODO: find proper basmala glyph codes per page font — UthmanicHafs is a style mismatch with QPC text
+// Renders basmala centered as a standalone line image
+export const renderBasmala = (width: number, lineHeight: number, fontSize: number, format = ImageFormat.PNG): Buffer => {
+  const canvas = createCanvas(width, lineHeight);
+  const ctx = canvas.getContext("2d");
+  ctx.font = `${fontSize}px "${BASMALA_FONT}"`;
   ctx.fillStyle = "#000000";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -255,8 +315,8 @@ export interface RenderPageResult {
   bounds: GlyphBounds[];
 }
 
-// Renders all lines of a page onto a single canvas with PHI aspect ratio.
-// Uses glyph-by-glyph justified layout (drawLine) for precise word positioning.
+// Renders all lines of a page onto a single canvas — same sizing/spacing as line mode.
+// Page image = 15 line slots stacked vertically, each rendered identically to line mode.
 export const renderFullPage = (
   fontFamily: string,
   lines: LineInput[],
@@ -264,85 +324,83 @@ export const renderFullPage = (
   page: number,
   withMarkers = false,
   showBounds = false,
-  surahNames?: readonly string[],
+  headerGlyphs: Record<string, string> = {},
   format = ImageFormat.PNG
 ): RenderPageResult => {
-  const height = Math.ceil(width * PHI);
-  // Fixed font ratio matching standard Mushaf typesetting (page 270 needs slight adjustment)
-  const fontFactor = page === 270 ? 22.5 : 21;
-  const fontSize = Math.floor(width / fontFactor);
-  mx.font = `${fontSize}px "${fontFamily}"`;
-
-  // Measure glyphs at fixed font size
-  const lineData: MeasuredLine[] = lines.map((l) => {
-    const measured = l.glyphs.map((g) => ({
-      ...g,
-      w: mx.measureText(g.text_qpc).width,
-    }));
-    const total = measured.reduce((s, g) => s + g.w, 0);
-    return { ...l, glyphs: measured, total };
-  });
-
-  // Font-level ascent (GD's char_up): 2 * charUp * 15 lines + margin ≈ page height
-  const charUp = mx.measureText("\u0020").fontBoundingBoxAscent;
+  // Reuse line mode's measurement for identical sizing
+  const { lineData, fontSize, lineHeight, ascent, descent } = measurePage(fontFamily, lines, width);
+  const height = LINES_PER_PAGE * lineHeight;
 
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
-  ctx.font = `${fontSize}px "${fontFamily}"`;
-  ctx.fillStyle = "#000000";
-  ctx.textBaseline = "alphabetic";
 
-  const isSpecialPage = page === 1 || page === 2;
-  const lineSpacing = isSpecialPage ? PHI * charUp : 2 * charUp;
-  // Include all lines — special lines (surah headers, basmalas) rendered with UthmanicHafs
-  const activeLines = lineData.filter(
-    (ld) => ld.glyphs.length > 0 || isSpecial(ld.type)
-  );
-
-  // Pages 1-2: center content vertically (fewer lines with wider spacing)
-  let coordY: number;
-  if (isSpecialPage) {
-    const contentHeight = charUp + (activeLines.length - 1) * lineSpacing;
-    coordY = (height - contentHeight) / 2;
-  } else {
-    // Standard pages: fixed top margin (matches quran.com)
-    coordY = fontSize / 2;
-  }
-
+  const lineMap = new Map(lineData.map((ld) => [ld.line, ld]));
+  const lineTypeMap = new Map(lines.map((l) => [l.line, l]));
   const allBounds: GlyphBounds[] = [];
-  const headerFontSize = Math.floor(fontSize * 0.65);
 
-  for (const ld of activeLines) {
-    // First line: advance past ascent so text doesn't clip top edge
-    if (ld === activeLines[0]) {
-      coordY += charUp;
-    }
+  for (let lineNum = 1; lineNum <= LINES_PER_PAGE; lineNum++) {
+    const ld = lineMap.get(lineNum);
+    const lineInfo = lineTypeMap.get(lineNum);
+    const y = (lineNum - 1) * lineHeight;
 
-    const baseline = coordY;
+    ctx.save();
 
-    if (isSpecial(ld.type) && ld.glyphs.length === 0) {
-      // Render surah header or basmala with UthmanicHafs font
-      ctx.save();
-      ctx.font = `${headerFontSize}px "${SURAH_HEADER_FONT}"`;
+    if (ld && ld.glyphs.length > 0) {
+      // Text line — same as renderLine
+      ctx.font = `${fontSize}px "${fontFamily}"`;
+      ctx.fillStyle = "#000000";
+      ctx.textBaseline = "alphabetic";
+      ctx.direction = "rtl";
+      ctx.textAlign = "center";
+
+      const baseline = y + Math.floor((lineHeight + ascent - descent) / 2);
+      const drawGlyphs = ld.glyphs.filter((g) => withMarkers || !g.isMarker);
+      const lineText = drawGlyphs.map((g) => g.text_qpc).join("");
+      ctx.fillText(lineText, width / 2, baseline);
+
+      // Compute per-glyph bounds
+      const allGlyphs = ld.glyphs;
+      const fullText = allGlyphs.map((g) => g.text_qpc).join("");
+      const fullWidth = ctx.measureText(fullText).width;
+      let cursorX = (width + fullWidth) / 2;
+      for (const g of allGlyphs) {
+        const gm = ctx.measureText(g.text_qpc);
+        cursorX -= gm.width;
+        allBounds.push({
+          page, line: lineNum, position: g.position,
+          surahNumber: g.surahNumber, ayahNumber: g.ayahNumber,
+          x: Math.round(cursorX),
+          y: Math.round(baseline - gm.actualBoundingBoxAscent),
+          width: Math.round(gm.width),
+          height: Math.round(gm.actualBoundingBoxAscent + gm.actualBoundingBoxDescent),
+          isMarker: g.isMarker ?? false,
+        });
+      }
+    } else if (lineInfo?.type === LineType.SurahHeader && lineInfo.surah_number) {
+      // Surah header — rendered with ornamental frame font
+      const glyph = headerGlyphs[`surah-${lineInfo.surah_number}`];
+      if (glyph) {
+        mx.font = `100px "${SURAH_HEADER_FONT}"`;
+        const refW = mx.measureText(glyph.trim()).width;
+        const hdrSize = Math.floor(100 * width / refW);
+        ctx.font = `${hdrSize}px "${SURAH_HEADER_FONT}"`;
+        ctx.fillStyle = "#000000";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(glyph.trim(), width / 2, y + lineHeight / 2);
+      }
+    } else if (lineInfo?.type === LineType.Basmala) {
+      // Basmala is Quran text — always rendered regardless of withMarkers
+      ctx.font = `${fontSize}px "${BASMALA_FONT}"`;
+      ctx.fillStyle = "#000000";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.direction = "rtl";
-      const centerY = baseline - charUp / 2 + lineSpacing / 2;
-      if (ld.type === LineType.SurahHeader && ld.surah_number) {
-        const name = surahNames?.[ld.surah_number] ?? "";
-        ctx.fillText(`سُورَةُ ${name}`, width / 2, centerY);
-      } else if (ld.type === LineType.Basmala) {
-        ctx.fillText(BASMALA, width / 2, centerY);
-      }
-      ctx.restore();
-    } else {
-      const lineBounds = drawLine(ctx, fontFamily, fontSize, width, ld, baseline, page, withMarkers, false);
-      allBounds.push(...lineBounds);
+      ctx.fillText(BASMALA, width / 2, y + lineHeight / 2);
     }
+    // Empty slots / skipped decorative lines stay transparent
 
-    // Advance Y — no descent subtraction because GD's char_down is 0 for QCF fonts
-    // (GD::Text measures 'Mj' which isn't in QCF fonts, so bbox returns 0)
-    coordY += lineSpacing;
+    ctx.restore();
   }
 
   if (showBounds) {

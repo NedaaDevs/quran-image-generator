@@ -5,8 +5,8 @@ import path from "path";
 import type { GlyphBounds } from "./types";
 import { createBoundsDb, type LineMetadata } from "./bounds-db";
 import { createDb, loadSurahMeta } from "./database";
-import { registerPageFont, registerSurahHeaderFont } from "./font-loader";
-import { measurePage, renderLine, renderBlankLine, renderSurahHeader, renderBasmala, renderFullPage } from "./renderer";
+import { registerPageFont, registerSurahFonts } from "./font-loader";
+import { measurePage, renderLine, renderBlankLine, renderSurahHeader, renderSurahFrame, renderBasmala, renderFullPage } from "./renderer";
 import { ImageFormat, LINES_PER_PAGE, LineType, RenderMode, type FontVersion } from "./types";
 
 export interface GeneratorOptions {
@@ -35,8 +35,11 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
   const fontsDir = path.join(opts.dataDir, opts.version, "fonts");
   const db = createDb(dbPath);
   const surahMeta = loadSurahMeta(opts.dataDir);
-  const surahNames = surahMeta.map((m) => m.name);
-  registerSurahHeaderFont(opts.dataDir);
+  registerSurahFonts(opts.dataDir, opts.version);
+
+  // Surah header font codepoint mapping (surah-N → Unicode glyph)
+  const headerGlyphsPath = path.join(opts.dataDir, "fonts", "surah-header-ligatures.json");
+  const headerGlyphs: Record<string, string> = JSON.parse(await Bun.file(headerGlyphsPath).text());
 
   const fmt = opts.format;
   const ext = fmt === ImageFormat.WebP ? "webp" : "png";
@@ -92,7 +95,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
     }));
 
     if (opts.mode === RenderMode.Page) {
-      const { buffer, bounds } = renderFullPage(fontFamily, lineInputs, opts.width, page, opts.withMarkers, opts.showBounds, surahNames, fmt);
+      const { buffer, bounds } = renderFullPage(fontFamily, lineInputs, opts.width, page, opts.withMarkers, opts.showBounds, headerGlyphs, fmt);
       const outDir = path.join(opts.outputDir, opts.version, "pages");
       mkdirSync(outDir, { recursive: true });
       await Bun.write(path.join(outDir, `${pad(page, 3)}.${ext}`), await optimize(buffer));
@@ -125,10 +128,9 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
           if (opts.boundsJson) jsonBounds.push(...bounds);
           boundsCount += bounds.length;
         } else if (lineInfo?.type === LineType.SurahHeader && lineInfo.surah_number) {
-          const name = surahMeta[lineInfo.surah_number]?.name ?? "";
-          await Bun.write(filePath, await optimize(renderSurahHeader(opts.width, lineHeight, name, fmt)));
+          await Bun.write(filePath, await optimize(renderSurahHeader(opts.width, lineHeight, lineInfo.surah_number, headerGlyphs, fmt)));
         } else if (lineInfo?.type === LineType.Basmala) {
-          await Bun.write(filePath, await optimize(renderBasmala(opts.width, lineHeight, fmt)));
+          await Bun.write(filePath, await optimize(renderBasmala(opts.width, lineHeight, fontSize, fmt)));
         } else {
           await Bun.write(filePath, blankImg);
         }
@@ -147,6 +149,15 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
     const jsonPath = path.join(opts.outputDir, opts.version, "bounds.json");
     await Bun.write(jsonPath, JSON.stringify(jsonBounds));
   }
+
+  // Generate reusable surah frame (ornamental border without text) once per version
+  const lineHeight = Math.round(opts.width * 232 / 1440);
+  const frameDir = path.join(opts.outputDir, opts.version);
+  mkdirSync(frameDir, { recursive: true });
+  await Bun.write(
+    path.join(frameDir, `surah-frame.${ext}`),
+    await optimize(renderSurahFrame(opts.width, lineHeight, headerGlyphs, fmt))
+  );
 
   db.close();
   return { count, boundsCount };
