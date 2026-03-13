@@ -22,11 +22,11 @@ export const createDb = (dbPath: string) => {
     // End-of-ayah entries have "textGlyph markerGlyph" (space-separated)
     // Split into two: the word glyph + the marker glyph (flagged)
     return glyphs.flatMap((g) => {
-      const parts = g.text_qpc.split(" ");
-      if (parts.length <= 1) return [g];
+      const spaceIdx = g.text_qpc.indexOf(" ");
+      if (spaceIdx === -1) return [g];
       return [
-        { ...g, text_qpc: parts[0] },
-        { position: g.position, text_qpc: parts[1], isMarker: true },
+        { ...g, text_qpc: g.text_qpc.slice(0, spaceIdx) },
+        { position: g.position, text_qpc: g.text_qpc.slice(spaceIdx + 1), isMarker: true },
       ];
     });
   };
