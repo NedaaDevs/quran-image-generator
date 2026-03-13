@@ -217,7 +217,7 @@ export const renderLine = (
 
 const BASMALA = "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ";
 
-// Composites ornamental frame (font 458) + version-matched surah name (ligature font)
+// Composites ornamental frame + version-matched surah name (ligature font)
 export const renderSurahHeader = (
   width: number, lineHeight: number, surahNumber: number,
   headerGlyphs: Record<string, string>, format = ImageFormat.PNG
@@ -225,42 +225,43 @@ export const renderSurahHeader = (
   const canvas = createCanvas(width, lineHeight);
   const ctx = canvas.getContext("2d");
 
-  // Draw ornamental frame scaled to full width
   const glyph = headerGlyphs[`surah-${surahNumber}`];
   if (glyph) {
+    // Frame font renders ornamental border + surah name as one glyph
     mx.font = `100px "${SURAH_HEADER_FONT}"`;
     const refW = mx.measureText(glyph.trim()).width;
-    const frameFontSize = Math.floor(100 * width / refW);
-    ctx.font = `${frameFontSize}px "${SURAH_HEADER_FONT}"`;
+    const fontSize = Math.floor(100 * width / refW);
+    ctx.font = `${fontSize}px "${SURAH_HEADER_FONT}"`;
     ctx.fillStyle = "#000000";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(glyph.trim(), width / 2, lineHeight / 2);
   }
 
-  // Overlay version-matched surah name
-  const nameFontSize = Math.floor(lineHeight * 0.45);
-  const ligature = `surah${String(surahNumber).padStart(3, "0")}`;
-  ctx.font = `${nameFontSize}px "${SURAH_NAME_FONT}"`;
-  ctx.fillStyle = "#000000";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(ligature, width / 2, lineHeight / 2);
-
   return canvas.toBuffer(toMime(format));
 };
 
-// Renders surah name only (no frame) using ligature font
+// Builds "سورة <name>" ligature text — v1/v4 need "surah-icon" prefix, v2 bakes it in
+const surahNameText = (surahNumber: number, fontSize: number): string => {
+  const name = `surah${String(surahNumber).padStart(3, "0")}`;
+  mx.font = `${fontSize}px "${SURAH_NAME_FONT}"`;
+  const iconW = mx.measureText("surah-icon").width;
+  // Ligature glyph is compact (~1.3x fontSize); missing glyph renders individual chars (~5x)
+  // Name before icon — ligatures produce Arabic glyphs which render RTL naturally
+  return iconW > 0 && iconW < fontSize * 2 ? `${name} surah-icon` : name;
+};
+
+// Renders version-matched surah name as standalone line image
 export const renderSurahName = (width: number, lineHeight: number, surahNumber: number, format = ImageFormat.PNG): Buffer => {
   const canvas = createCanvas(width, lineHeight);
   const ctx = canvas.getContext("2d");
   const fontSize = Math.floor(lineHeight * 0.45);
-  const ligature = `surah${String(surahNumber).padStart(3, "0")}`;
   ctx.font = `${fontSize}px "${SURAH_NAME_FONT}"`;
   ctx.fillStyle = "#000000";
-  ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(ligature, width / 2, lineHeight / 2);
+  ctx.textAlign = "center";
+  ctx.direction = "rtl";
+  ctx.fillText(surahNameText(surahNumber, fontSize), width / 2, lineHeight / 2);
   return canvas.toBuffer(toMime(format));
 };
 
@@ -387,8 +388,8 @@ export const renderFullPage = (
         });
       }
     } else if (lineInfo?.type === LineType.SurahHeader && lineInfo.surah_number) {
-      // With markers: ornamental frame + name; without: name only (frame is a theme asset)
       if (withMarkers) {
+        // Preview: frame font renders ornamental border + name as one glyph
         const glyph = headerGlyphs[`surah-${lineInfo.surah_number}`];
         if (glyph) {
           mx.font = `100px "${SURAH_HEADER_FONT}"`;
@@ -400,15 +401,16 @@ export const renderFullPage = (
           ctx.textBaseline = "middle";
           ctx.fillText(glyph.trim(), width / 2, y + lineHeight / 2);
         }
+      } else {
+        // App mode: version-matched surah name only, app overlays themed frame
+        const nameFontSize = Math.floor(lineHeight * 0.45);
+        ctx.font = `${nameFontSize}px "${SURAH_NAME_FONT}"`;
+        ctx.fillStyle = "#000000";
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "center";
+        ctx.direction = "rtl";
+        ctx.fillText(surahNameText(lineInfo.surah_number, nameFontSize), width / 2, y + lineHeight / 2);
       }
-      // Version-matched surah name — always rendered
-      const nameFontSize = Math.floor(lineHeight * 0.45);
-      const ligature = `surah${String(lineInfo.surah_number).padStart(3, "0")}`;
-      ctx.font = `${nameFontSize}px "${SURAH_NAME_FONT}"`;
-      ctx.fillStyle = "#000000";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(ligature, width / 2, y + lineHeight / 2);
     } else if (lineInfo?.type === LineType.Basmala) {
       // Basmala is Quran text — always rendered regardless of withMarkers
       ctx.font = `${fontSize}px "${BASMALA_FONT}"`;
