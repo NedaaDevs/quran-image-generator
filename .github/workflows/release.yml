@@ -13,20 +13,40 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            target: bun-linux-x64
+          # Per-version binaries (smaller, single version bundled)
+          - target: bun-linux-x64
+            artifact: quran-gen-v1-linux-x64
+            versions: v1
+          - target: bun-linux-x64
+            artifact: quran-gen-v2-linux-x64
+            versions: v2
+          - target: bun-linux-x64
+            artifact: quran-gen-v4-linux-x64
+            versions: v4
+          - target: bun-darwin-arm64
+            artifact: quran-gen-v1-darwin-arm64
+            versions: v1
+          - target: bun-darwin-arm64
+            artifact: quran-gen-v2-darwin-arm64
+            versions: v2
+          - target: bun-darwin-arm64
+            artifact: quran-gen-v4-darwin-arm64
+            versions: v4
+          # All-in-one binaries
+          - target: bun-linux-x64
             artifact: quran-gen-linux-x64
-          - os: ubuntu-latest
-            target: bun-linux-arm64
+            versions: v1 v2 v4
+          - target: bun-linux-arm64
             artifact: quran-gen-linux-arm64
-          - os: macos-latest
-            target: bun-darwin-arm64
+            versions: v1 v2 v4
+          - target: bun-darwin-arm64
             artifact: quran-gen-darwin-arm64
-          - os: macos-latest
-            target: bun-darwin-x64
+            versions: v1 v2 v4
+          - target: bun-darwin-x64
             artifact: quran-gen-darwin-x64
+            versions: v1 v2 v4
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ contains(matrix.target, 'darwin') && 'macos-latest' || 'ubuntu-latest' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -37,8 +57,24 @@ jobs:
 
       - run: bun install
 
-      - name: Build binary
-        run: bun build src/cli.ts --compile --target=${{ matrix.target }} --outfile ${{ matrix.artifact }}
+      - name: Download assets from release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download assets -D data/ -p "common.zip"
+          (cd data && unzip -o -q common.zip && rm common.zip)
+          for v in ${{ matrix.versions }}; do
+            gh release download assets -D data/ -p "${v}.zip"
+            (cd data && unzip -o -q "${v}.zip" && rm "${v}.zip")
+          done
+
+      - name: Build binary with embedded assets
+        run: |
+          assets="data/common/**/*"
+          for v in ${{ matrix.versions }}; do
+            assets="$assets data/${v}/**/*"
+          done
+          bun build src/cli.ts $assets --compile --target=${{ matrix.target }} --outfile ${{ matrix.artifact }}
 
       - uses: actions/upload-artifact@v4
         with:
