@@ -4,8 +4,8 @@ import { generate } from "./generator";
 import { FontVersion, ImageFormat, RenderMode } from "./types";
 import { promptOptions } from "./interactive";
 
-// import.meta.dir works in dev (bun run), process.execPath for compiled binary
-const isCompiled = !import.meta.dir.startsWith("/");
+// Compiled binary uses $bunfs virtual filesystem — resolve paths from the executable location
+const isCompiled = import.meta.dir.includes("$bunfs");
 const ROOT = isCompiled ? path.dirname(process.execPath) : path.join(import.meta.dir, "..");
 
 const hasArgs = process.argv.length > 2;
