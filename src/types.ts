@@ -56,3 +56,6 @@ export interface MeasuredLine {
   glyphs: MeasuredGlyph[];
   total: number;
 }
+
+// Standard Mushaf page grid — all pages output this many line slots
+export const LINES_PER_PAGE = 15;
