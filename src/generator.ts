@@ -31,8 +31,10 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
   const fontsDir = path.join(opts.dataDir, opts.version, "fonts");
   const db = createDb(dbPath);
 
+  const pad = (n: number, len: number) => String(n).padStart(len, "0");
+
   // Bounds written to SQLite for efficient per-page/ayah queries at runtime
-  const boundsDbPath = path.join(opts.outputDir, opts.version, "bounds", `${opts.width}.db`);
+  const boundsDbPath = path.join(opts.outputDir, opts.version, "bounds.db");
   const boundsDb = createBoundsDb(boundsDbPath);
   boundsDb.begin();
 
@@ -50,16 +52,16 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 
     if (opts.mode === RenderMode.Page) {
       const { buffer, bounds } = renderFullPage(fontFamily, lineInputs, opts.width, page, opts.withMarkers, opts.showBounds);
-      const outDir = path.join(opts.outputDir, opts.version, "pages", String(opts.width));
+      const outDir = path.join(opts.outputDir, opts.version, "pages");
       mkdirSync(outDir, { recursive: true });
-      await Bun.write(path.join(outDir, `${page}.png`), buffer);
+      await Bun.write(path.join(outDir, `${pad(page, 3)}.png`), buffer);
       boundsDb.writeBounds(bounds);
       if (opts.boundsJson) jsonBounds.push(...bounds);
       boundsCount += bounds.length;
       count++;
     } else {
       const { lineData, fontSize, lineHeight, ascent, descent } = measurePage(fontFamily, lineInputs, opts.width);
-      const outDir = path.join(opts.outputDir, opts.version, "lines", String(opts.width), String(page));
+      const outDir = path.join(opts.outputDir, opts.version, "lines", pad(page, 3));
       mkdirSync(outDir, { recursive: true });
 
       const lineMap = new Map(lineData.map((ld) => [ld.line, ld]));
@@ -73,12 +75,12 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
             fontFamily, fontSize, opts.width, { lineHeight, ascent, descent },
             ld, opts.withMarkers, page, opts.showBounds
           );
-          await Bun.write(path.join(outDir, `${lineNum}.png`), buffer);
+          await Bun.write(path.join(outDir, `${pad(lineNum, 2)}.png`), buffer);
           boundsDb.writeBounds(bounds);
           if (opts.boundsJson) jsonBounds.push(...bounds);
           boundsCount += bounds.length;
         } else {
-          await Bun.write(path.join(outDir, `${lineNum}.png`), blankPng);
+          await Bun.write(path.join(outDir, `${pad(lineNum, 2)}.png`), blankPng);
         }
         count++;
       }
@@ -91,7 +93,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
   boundsDb.close();
 
   if (opts.boundsJson && jsonBounds.length > 0) {
-    const jsonPath = path.join(opts.outputDir, opts.version, "bounds", `${opts.width}.json`);
+    const jsonPath = path.join(opts.outputDir, opts.version, "bounds.json");
     await Bun.write(jsonPath, JSON.stringify(jsonBounds));
   }
 
