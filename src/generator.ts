@@ -1,5 +1,6 @@
 import { mkdirSync } from "fs";
 import path from "path";
+import { createBoundsDb } from "./bounds-db";
 import { createDb } from "./database";
 import { registerPageFont } from "./font-loader";
 import { measurePage, renderLine, renderFullPage } from "./renderer";
@@ -27,6 +28,11 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
   const dbPath = path.join(opts.dataDir, opts.version, "db", "quran-layout.db");
   const fontsDir = path.join(opts.dataDir, opts.version, "fonts");
   const db = createDb(dbPath);
+
+  // Write bounds to SQLite for efficient per-page/ayah queries at runtime
+  const boundsDbPath = path.join(opts.outputDir, opts.version, "bounds", `${opts.width}.db`);
+  const boundsDb = createBoundsDb(boundsDbPath);
+  boundsDb.begin();
 
   let count = 0;
   const allBounds: GlyphBounds[] = [];
@@ -57,6 +63,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
           ld, opts.withMarkers, page, opts.showBounds
         );
         await Bun.write(path.join(outDir, `${ld.line}.png`), buffer);
+        boundsDb.writeBounds(bounds);
         allBounds.push(...bounds);
         count++;
       }
@@ -65,6 +72,8 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
     opts.onProgress?.(page, opts.endPage - opts.startPage + 1);
   }
 
+  boundsDb.commit();
+  boundsDb.close();
   db.close();
   return { count, bounds: allBounds };
 };
