@@ -1,5 +1,5 @@
 import { createCanvas } from "@napi-rs/canvas";
-import { LineType, type LineInput, type MeasuredLine } from "./types";
+import { LineType, type GlyphBounds, type LineInput, type MeasuredLine } from "./types";
 
 // Arbitrary reference size for initial glyph measurement — actual fontSize is scaled from this
 const REF_SIZE = 100;
@@ -122,16 +122,24 @@ const drawLine = (
   }
 };
 
+export interface RenderLineResult {
+  buffer: Buffer;
+  bounds: GlyphBounds[];
+}
+
 // Renders a single line as a standalone PNG — full-string centered rendering.
 // Unlike drawLine (glyph-by-glyph), this lets the font engine handle kerning/spacing natively.
+// Calculates per-glyph bounds using substring measurement for accurate hit areas.
 export const renderLine = (
   fontFamily: string,
   fontSize: number,
   width: number,
   metrics: Pick<PageMetrics, "lineHeight" | "ascent" | "descent" | "hPad">,
   ld: MeasuredLine,
-  withMarkers = false
-) => {
+  withMarkers = false,
+  page = 0,
+  showBounds = false
+): RenderLineResult => {
   const canvas = createCanvas(width, metrics.lineHeight);
   const ctx = canvas.getContext("2d");
   ctx.font = `${fontSize}px "${fontFamily}"`;
@@ -140,16 +148,54 @@ export const renderLine = (
   ctx.direction = "rtl";
   ctx.textAlign = "center";
 
-  // Concatenate glyphs into single string — markers (end-of-ayah signs) are optional
-  const lineText = ld.glyphs
-    .filter((g) => withMarkers || !g.isMarker)
-    .map((g) => g.text_qpc)
-    .join("");
+  // Filter glyphs based on marker preference
+  const visibleGlyphs = ld.glyphs.filter((g) => withMarkers || !g.isMarker);
+  const lineText = visibleGlyphs.map((g) => g.text_qpc).join("");
 
   const baseline = Math.floor((metrics.lineHeight + metrics.ascent - metrics.descent) / 2);
   ctx.fillText(lineText, width / 2, baseline);
 
-  return canvas.toBuffer("image/png");
+  // Calculate per-glyph bounds by measuring each glyph individually.
+  // QCF fonts use one code point per word — no inter-glyph kerning to worry about.
+  const fullWidth = ctx.measureText(lineText).width;
+
+  // RTL: first glyph in array is rightmost on screen
+  const bounds: GlyphBounds[] = [];
+  let cursorX = (width + fullWidth) / 2; // right edge of centered text
+
+  for (const g of visibleGlyphs) {
+    const gm = ctx.measureText(g.text_qpc);
+    const glyphW = gm.width;
+    cursorX -= glyphW;
+
+    const y = baseline - gm.actualBoundingBoxAscent;
+    const h = gm.actualBoundingBoxAscent + gm.actualBoundingBoxDescent;
+
+    bounds.push({
+      page,
+      line: ld.line,
+      position: g.position,
+      surahNumber: g.surahNumber,
+      ayahNumber: g.ayahNumber,
+      x: Math.round(cursorX),
+      y: Math.round(y),
+      width: Math.round(glyphW),
+      height: Math.round(h),
+      isMarker: g.isMarker ?? false,
+    });
+  }
+
+  // Draw semi-transparent colored rectangles over each glyph for visual validation
+  if (showBounds) {
+    const colors = ["rgba(255,0,0,0.25)", "rgba(0,0,255,0.25)"];
+    for (let i = 0; i < bounds.length; i++) {
+      const b = bounds[i]!;
+      ctx.fillStyle = colors[i % 2]!;
+      ctx.fillRect(b.x, b.y, b.width, b.height);
+    }
+  }
+
+  return { buffer: canvas.toBuffer("image/png"), bounds };
 };
 
 // Renders all lines of a page onto a single canvas with PHI aspect ratio.
