@@ -15,6 +15,7 @@ export interface GeneratorOptions {
   format: ImageFormat;
   startPage: number;
   endPage: number;
+  pages?: number[];
   width: number;
   withMarkers: boolean;
   showBounds: boolean;
@@ -74,7 +75,10 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 
   const allLineMetadata: LineMetadata[] = [];
 
+  const pageSet = opts.pages ? new Set(opts.pages) : null;
+
   for (let page = opts.startPage; page <= opts.endPage; page++) {
+    if (pageSet && !pageSet.has(page)) continue;
     const fontFamily = registerPageFont(fontsDir, page, opts.version);
     const lines = db.getPageLines(page);
 
