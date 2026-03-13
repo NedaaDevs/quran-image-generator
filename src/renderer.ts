@@ -15,7 +15,6 @@ export interface PageMetrics {
   lineHeight: number;
   ascent: number;
   descent: number;
-  hPad: number;
 }
 
 // Measures all glyphs on a page and computes fontSize to fit the widest text line exactly.
@@ -35,11 +34,7 @@ export const measurePage = (fontFamily: string, lines: LineInput[], width: numbe
     return { ...l, glyphs: measured, total };
   });
 
-  // No horizontal padding — QCF fonts include built-in glyph spacing
-  const hPad = 0;
-  const textWidth = width;
-
-  const fontSize = Math.floor(REF_SIZE * (textWidth / maxRefWidth));
+  const fontSize = Math.floor(REF_SIZE * (width / maxRefWidth));
   mx.font = `${fontSize}px "${fontFamily}"`;
 
   // Page-wide ascent/descent ensures consistent baseline across all lines
@@ -56,40 +51,56 @@ export const measurePage = (fontFamily: string, lines: LineInput[], width: numbe
   // Standard Mushaf line height ratio — 232/1440 maintains correct vertical proportion
   const lineHeight = Math.round(width * 232 / 1440);
 
-  return { lineData, fontSize, lineHeight, ascent: pageAscent, descent: pageDescent, hPad };
+  return { lineData, fontSize, lineHeight, ascent: pageAscent, descent: pageDescent };
 };
 
 const isSpecial = (type: LineType) =>
   type === LineType.SurahHeader || type === LineType.Basmala;
 
-// Draws a single line glyph-by-glyph with justification or centering.
-// Used by page mode where each line needs precise positioning on a shared canvas.
+// Glyph-by-glyph render enables inter-word gap adjustment for justification
 const drawLine = (
   ctx: ReturnType<ReturnType<typeof createCanvas>["getContext"]>,
   fontFamily: string,
   fontSize: number,
   width: number,
-  hPad: number,
   ld: MeasuredLine,
   baseline: number,
+  page: number,
   withMarkers = false,
   justify = true
-) => {
+): GlyphBounds[] => {
   mx.font = `${fontSize}px "${fontFamily}"`;
   const glyphs = ld.glyphs.map((g) => ({
     ...g,
     w: mx.measureText(g.text_qpc).width,
   }));
   const total = glyphs.reduce((s, g) => s + g.w, 0);
-  const textWidth = width - hPad * 2;
   const shouldDraw = (g: { isMarker?: boolean }) => !g.isMarker || withMarkers;
 
+  const recordBound = (g: typeof glyphs[0], x: number) => {
+    const gm = mx.measureText(g.text_qpc);
+    return {
+      page,
+      line: ld.line,
+      position: g.position,
+      surahNumber: g.surahNumber,
+      ayahNumber: g.ayahNumber,
+      x: Math.round(x),
+      y: Math.round(baseline - gm.actualBoundingBoxAscent),
+      width: Math.round(g.w),
+      height: Math.round(gm.actualBoundingBoxAscent + gm.actualBoundingBoxDescent),
+      isMarker: g.isMarker ?? false,
+    };
+  };
+
+  const bounds: GlyphBounds[] = [];
+
   if (isSpecial(ld.type) || !justify) {
-    // Center line: natural glyph spacing, equal margins on both sides
-    let x = hPad + (textWidth + total) / 2;
+    let x = (width + total) / 2;
     for (const g of glyphs) {
       x -= g.w;
       if (shouldDraw(g)) ctx.fillText(g.text_qpc, x, baseline);
+      bounds.push(recordBound(g, x));
     }
   } else {
     // Justify: group each word with its following marker, then distribute gaps evenly
@@ -106,20 +117,23 @@ const drawLine = (
     }
 
     // Only justify if text fills >70% of width — avoids ugly gaps on short lines
-    const fillRatio = total / textWidth;
+    const fillRatio = total / width;
     const gap =
       fillRatio > 0.7 && groups.length > 1
-        ? (textWidth - total) / (groups.length - 1)
+        ? (width - total) / (groups.length - 1)
         : 0;
-    let x = width - hPad;
+    let x = width;
     for (const group of groups) {
       for (const g of group.glyphs) {
         x -= g.w;
         if (shouldDraw(g)) ctx.fillText(g.text_qpc, x, baseline);
+        bounds.push(recordBound(g, x));
       }
       x -= gap;
     }
   }
+
+  return bounds;
 };
 
 export interface RenderLineResult {
@@ -134,7 +148,7 @@ export const renderLine = (
   fontFamily: string,
   fontSize: number,
   width: number,
-  metrics: Pick<PageMetrics, "lineHeight" | "ascent" | "descent" | "hPad">,
+  metrics: Pick<PageMetrics, "lineHeight" | "ascent" | "descent">,
   ld: MeasuredLine,
   withMarkers = false,
   page = 0,
@@ -198,6 +212,15 @@ export const renderLine = (
   return { buffer: canvas.toBuffer("image/png"), bounds };
 };
 
+// Blank transparent PNG at the standard line dimensions — used for empty slots in the 15-line grid
+export const renderBlankLine = (width: number, lineHeight: number): Buffer =>
+  createCanvas(width, lineHeight).toBuffer("image/png");
+
+export interface RenderPageResult {
+  buffer: Buffer;
+  bounds: GlyphBounds[];
+}
+
 // Renders all lines of a page onto a single canvas with PHI aspect ratio.
 // Uses glyph-by-glyph justified layout (drawLine) for precise word positioning.
 export const renderFullPage = (
@@ -205,12 +228,10 @@ export const renderFullPage = (
   lines: LineInput[],
   width: number,
   page: number,
-  withMarkers = false
-) => {
+  withMarkers = false,
+  showBounds = false
+): RenderPageResult => {
   const height = Math.ceil(width * PHI);
-  // No horizontal padding — matches quran.com (centering handles margins naturally)
-  const hPad = 0;
-
   // Fixed font ratio matching standard Mushaf typesetting (page 270 needs slight adjustment)
   const fontFactor = page === 270 ? 22.5 : 21;
   const fontSize = Math.floor(width / fontFactor);
@@ -235,30 +256,45 @@ export const renderFullPage = (
   ctx.fillStyle = "#000000";
   ctx.textBaseline = "alphabetic";
 
-  // Start with margin_top = fontSize / 2 (matches quran.com)
-  let coordY = fontSize / 2;
+  const isSpecialPage = page === 1 || page === 2;
+  const lineSpacing = isSpecialPage ? PHI * charUp : 2 * charUp;
+  const contentLines = lineData.filter((ld) => ld.glyphs.length > 0);
 
-  for (const ld of lineData) {
-    if (ld.glyphs.length === 0) continue;
+  // Pages 1-2: center content vertically (fewer lines with wider spacing)
+  let coordY: number;
+  if (isSpecialPage) {
+    const contentHeight = charUp + (contentLines.length - 1) * lineSpacing;
+    coordY = (height - contentHeight) / 2;
+  } else {
+    // Standard pages: fixed top margin (matches quran.com)
+    coordY = fontSize / 2;
+  }
 
+  const allBounds: GlyphBounds[] = [];
+
+  for (const ld of contentLines) {
     // First line: advance past ascent so text doesn't clip top edge
-    if (coordY <= fontSize / 2) {
+    if (ld === contentLines[0]) {
       coordY += charUp;
     }
 
     const baseline = coordY;
-    drawLine(ctx, fontFamily, fontSize, width, hPad, ld, baseline, withMarkers, false);
+    const lineBounds = drawLine(ctx, fontFamily, fontSize, width, ld, baseline, page, withMarkers, false);
+    allBounds.push(...lineBounds);
 
     // Advance Y — no descent subtraction because GD's char_down is 0 for QCF fonts
     // (GD::Text measures 'Mj' which isn't in QCF fonts, so bbox returns 0)
-    if (page === 1 || page === 2) {
-      // Pages 1-2: PHI * char_up (golden ratio spacing for Al-Fatiha / Al-Baqarah opening)
-      coordY += PHI * charUp;
-    } else {
-      // Standard pages: 2 * char_up (matches quran.com line spacing)
-      coordY += 2 * charUp;
+    coordY += lineSpacing;
+  }
+
+  if (showBounds) {
+    const colors = ["rgba(255,0,0,0.25)", "rgba(0,0,255,0.25)"];
+    for (let i = 0; i < allBounds.length; i++) {
+      const b = allBounds[i]!;
+      ctx.fillStyle = colors[i % 2]!;
+      ctx.fillRect(b.x, b.y, b.width, b.height);
     }
   }
 
-  return canvas.toBuffer("image/png");
+  return { buffer: canvas.toBuffer("image/png"), bounds: allBounds };
 };
