@@ -95,8 +95,10 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 
 	const pad = (n: number, len: number) => String(n).padStart(len, "0");
 
+	const fmtDir = path.join(opts.outputDir, opts.version, String(opts.width), ext);
+
 	// Bounds written to SQLite for efficient per-page/ayah queries at runtime
-	const boundsDbPath = path.join(opts.outputDir, opts.version, String(opts.width), "bounds.db");
+	const boundsDbPath = path.join(fmtDir, "bounds.db");
 	const boundsDb = createBoundsDb(boundsDbPath);
 	boundsDb.begin();
 
@@ -155,7 +157,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 				fmt,
 				opts.centerPages,
 			);
-			const outDir = path.join(opts.outputDir, opts.version, String(opts.width), "pages");
+			const outDir = path.join(fmtDir, "pages");
 			mkdirSync(outDir, { recursive: true });
 			await Bun.write(path.join(outDir, `${pad(page, 3)}.${ext}`), await optimize(buffer));
 			boundsDb.writeBounds(bounds);
@@ -164,7 +166,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 			count++;
 		} else {
 			const { lineData, fontSize, lineHeight, ascent, descent } = measurePage(fontFamily, lineInputs, opts.width);
-			const outDir = path.join(opts.outputDir, opts.version, String(opts.width), "lines", pad(page, 3));
+			const outDir = path.join(fmtDir, "lines", pad(page, 3));
 			mkdirSync(outDir, { recursive: true });
 
 			const lineMap = new Map(lineData.map((ld) => [ld.line, ld]));
@@ -239,13 +241,13 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 	boundsDb.close();
 
 	if (opts.boundsJson && jsonBounds.length > 0) {
-		const jsonPath = path.join(opts.outputDir, opts.version, String(opts.width), "bounds.json");
+		const jsonPath = path.join(fmtDir, "bounds.json");
 		await Bun.write(jsonPath, JSON.stringify(jsonBounds));
 	}
 
 	// Generate reusable marker templates (ornamental assets for theme overlays)
 	const lineHeight = Math.round((opts.width * 232) / 1440);
-	const markersDir = path.join(opts.outputDir, opts.version, String(opts.width), "markers");
+	const markersDir = path.join(fmtDir, "markers");
 	mkdirSync(markersDir, { recursive: true });
 	await Bun.write(
 		path.join(markersDir, `surah-frame.${ext}`),
