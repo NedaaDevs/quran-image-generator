@@ -15,10 +15,8 @@ export const createBoundsDb = (dbPath: string) => {
 	mkdirSync(path.dirname(dbPath), { recursive: true });
 
 	const db = new Database(dbPath);
-	db.run("DROP TABLE IF EXISTS glyph_bounds");
-	db.run("DROP TABLE IF EXISTS line_metadata");
 
-	db.run(`CREATE TABLE glyph_bounds (
+	db.run(`CREATE TABLE IF NOT EXISTS glyph_bounds (
     page INTEGER NOT NULL,
     line INTEGER NOT NULL,
     position INTEGER NOT NULL,
@@ -30,11 +28,11 @@ export const createBoundsDb = (dbPath: string) => {
     height INTEGER NOT NULL,
     is_marker INTEGER NOT NULL DEFAULT 0
   )`);
-	db.run("CREATE INDEX idx_bounds_page ON glyph_bounds(page)");
-	db.run("CREATE INDEX idx_bounds_ayah ON glyph_bounds(surah_number, ayah_number)");
+	db.run("CREATE INDEX IF NOT EXISTS idx_bounds_page ON glyph_bounds(page)");
+	db.run("CREATE INDEX IF NOT EXISTS idx_bounds_ayah ON glyph_bounds(surah_number, ayah_number)");
 
 	// Lets the app know where to place surah header and basmala overlays
-	db.run(`CREATE TABLE line_metadata (
+	db.run(`CREATE TABLE IF NOT EXISTS line_metadata (
     page INTEGER NOT NULL,
     line INTEGER NOT NULL,
     type TEXT NOT NULL,
@@ -42,6 +40,9 @@ export const createBoundsDb = (dbPath: string) => {
     surah_name TEXT,
     PRIMARY KEY (page, line)
   )`);
+
+	const delBounds = db.prepare("DELETE FROM glyph_bounds WHERE page = ?");
+	const delMeta = db.prepare("DELETE FROM line_metadata WHERE page = ?");
 
 	const insertBound = db.prepare(
 		"INSERT INTO glyph_bounds (page, line, position, surah_number, ayah_number, x, y, width, height, is_marker) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -77,7 +78,12 @@ export const createBoundsDb = (dbPath: string) => {
 		}
 	};
 
+	const clearPage = (page: number) => {
+		delBounds.run(page);
+		delMeta.run(page);
+	};
+
 	const close = () => db.close();
 
-	return { begin, commit, writeBounds, writeLineMetadata, close };
+	return { begin, commit, clearPage, writeBounds, writeLineMetadata, close };
 };
