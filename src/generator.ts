@@ -1,12 +1,8 @@
+import { execFile } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { losslessCompressPng } from "@napi-rs/image";
-
-// Sharp is optional — only needed for alpha quantization (smaller PNGs)
-let sharp: typeof import("sharp") | undefined;
-try {
-	sharp = require("sharp");
-} catch {}
+import pngquantBin from "pngquant-bin";
 
 import { createBoundsDb, type LineMetadata } from "./bounds-db";
 import { createDb, loadSurahMeta } from "./database";
@@ -24,7 +20,7 @@ import { renderFullPageV1, renderLineV1 } from "./renderer-v1";
 import { renderFullPageV2, renderLineV2 } from "./renderer-v2";
 import { renderFullPageV4, renderLineV4 } from "./renderer-v4";
 import type { GlyphBounds } from "./types";
-import { FontVersion, ImageFormat, LINES_PER_PAGE, LineType, RenderMode } from "./types";
+import { FontVersion, hPadding, ImageFormat, LINES_PER_PAGE, LineType, RenderMode } from "./types";
 
 export interface GeneratorOptions {
 	version: FontVersion;
@@ -72,25 +68,24 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 	const fmt = opts.format;
 	const ext = fmt === ImageFormat.WebP ? "webp" : "png";
 
-	// Reduces anti-aliasing alpha from ~210 levels to 16, drastically improving PNG compression
-	const quantizeAlpha = async (buf: Buffer): Promise<Buffer> => {
-		const s = sharp;
-		if (!s) return buf;
-		const { data, info } = await s(buf).raw().toBuffer({ resolveWithObject: true });
-		const step = 255 / 15;
-		for (let i = 3; i < data.length; i += 4) {
-			data[i] = Math.round(Math.round((data[i] ?? 0) / step) * step);
-		}
-		return s(data, { raw: { width: info.width, height: info.height, channels: 4 } })
-			.png()
-			.toBuffer();
-	};
+	// pngquant reduces palette to 11 colors with no dithering — crisp text edges, smaller files
+	const quantizePng = (buf: Buffer): Promise<Buffer> =>
+		new Promise((resolve, reject) => {
+			const child = execFile(
+				pngquantBin,
+				["11", "--nofs", "--speed", "1", "-"],
+				{ encoding: "buffer", maxBuffer: 10 * 1024 * 1024 },
+				(err, stdout) => {
+					if (err) return reject(err);
+					resolve(stdout);
+				},
+			);
+			child.stdin?.end(buf);
+		});
 
-	// Oxipng lossless optimization for PNG; WebP is already compact from canvas
 	const optimize = async (buf: Buffer) => {
 		if (fmt !== ImageFormat.PNG) return buf;
-		const input = opts.quantizeAlpha ? await quantizeAlpha(buf) : buf;
-		return losslessCompressPng(input);
+		return opts.quantizeAlpha ? quantizePng(buf) : losslessCompressPng(buf);
 	};
 
 	const pad = (n: number, len: number) => String(n).padStart(len, "0");
@@ -165,7 +160,14 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 			boundsCount += bounds.length;
 			count++;
 		} else {
-			const { lineData, fontSize, lineHeight, ascent, descent } = measurePage(fontFamily, lineInputs, opts.width);
+			const hPad = hPadding(opts.version);
+			const contentWidth = hPad > 0 ? opts.width - 2 * hPad : undefined;
+			const { lineData, fontSize, lineHeight, ascent, descent } = measurePage(
+				fontFamily,
+				lineInputs,
+				opts.width,
+				contentWidth,
+			);
 			const outDir = path.join(fmtDir, "lines", pad(page, 3));
 			mkdirSync(outDir, { recursive: true });
 
