@@ -8,6 +8,17 @@ import { FontVersion, ImageFormat, RenderMode } from "./types";
 const isCompiled = import.meta.dir.includes("$bunfs");
 const ROOT = isCompiled ? path.dirname(process.execPath) : path.join(import.meta.dir, "..");
 
+// In compiled mode, look for pngquant next to executable, then fall back to system PATH
+const resolvePngquant = (): string => {
+	if (isCompiled) {
+		const local = path.join(ROOT, "pngquant");
+		if (existsSync(local)) return local;
+		return "pngquant";
+	}
+	return require("pngquant-bin").default;
+};
+const pngquantBin = resolvePngquant();
+
 // Embedded at compile time — resolves to $bunfs path in binary, real path in dev
 let assetsZip: string | undefined;
 try {
@@ -44,7 +55,7 @@ if (!hasArgs) {
 		`\nRendering pages ${opts.startPage}-${opts.endPage} at ${opts.width}px (${opts.version}, ${opts.mode} mode, ${opts.format})...\n`,
 	);
 
-	const { count, boundsCount } = await generate(opts);
+	const { count, boundsCount } = await generate({ ...opts, pngquantBin });
 
 	const label = opts.mode === RenderMode.Page ? "pages" : "lines";
 	console.log(`\nDone — ${count} ${label} across ${opts.endPage - opts.startPage + 1} pages`);
@@ -98,6 +109,7 @@ if (!hasArgs) {
 		showBounds,
 		boundsJson,
 		quantizeAlpha,
+		pngquantBin,
 		outputDir: path.join(ROOT, "output"),
 		dataDir,
 		onProgress: (page) => process.stdout.write(`\r  page ${page}/${endPage}`),

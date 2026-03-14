@@ -48,4 +48,4 @@ jobs:
       - run: bun install
 
       - name: Build binary
-        run: bun build src/cli.ts --compile --outfile quran-gen
+        run: bun run build

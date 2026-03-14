@@ -75,12 +75,15 @@ jobs:
           (cd data && zip -r -q ../assets.zip $dirs)
 
       - name: Build binary with embedded assets
-        run: bun build src/cli.ts assets.zip --compile --target=${{ matrix.target }} --outfile ${{ matrix.artifact }}
+        run: |
+          bun build src/cli.ts assets.zip --compile --target=${{ matrix.target }} --outfile ${{ matrix.artifact }}
+          cp node_modules/pngquant-bin/vendor/pngquant pngquant
+          tar czf ${{ matrix.artifact }}.tar.gz ${{ matrix.artifact }} pngquant
 
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}.tar.gz
 
   release:
     needs: build
@@ -99,4 +102,4 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           gh release create "$TAG" --title "$TAG" --generate-notes || true
-          gh release upload "$TAG" quran-gen-* --clobber
+          gh release upload "$TAG" quran-gen-*.tar.gz --clobber

@@ -2,7 +2,6 @@ import { execFile } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { losslessCompressPng } from "@napi-rs/image";
-import pngquantBin from "pngquant-bin";
 
 import { createBoundsDb, type LineMetadata } from "./bounds-db";
 import { createDb, loadSurahMeta } from "./database";
@@ -35,6 +34,7 @@ export interface GeneratorOptions {
 	showBounds: boolean;
 	boundsJson: boolean;
 	quantizeAlpha: boolean;
+	pngquantBin?: string;
 	outputDir: string;
 	dataDir: string;
 	onProgress?: (page: number, total: number) => void;
@@ -72,7 +72,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 	const quantizePng = (buf: Buffer): Promise<Buffer> =>
 		new Promise((resolve, reject) => {
 			const child = execFile(
-				pngquantBin,
+				opts.pngquantBin ?? "pngquant",
 				["11", "--nofs", "--speed", "1", "-"],
 				{ encoding: "buffer", maxBuffer: 10 * 1024 * 1024 },
 				(err, stdout) => {
