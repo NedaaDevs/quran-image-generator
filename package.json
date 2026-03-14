@@ -2,7 +2,13 @@
   "name": "quran-image-generator",
   "module": "index.ts",
   "type": "module",
+  "version": "0.2.0",
   "private": true,
+  "scripts": {
+    "build": "bun build src/cli.ts --compile --outfile quran-gen",
+    "build:linux": "bun build src/cli.ts --compile --target=bun-linux-x64 --outfile quran-gen-linux",
+    "build:mac": "bun build src/cli.ts --compile --target=bun-darwin-arm64 --outfile quran-gen"
+  },
   "devDependencies": {
     "@biomejs/biome": "^2.4.7",
     "@types/bun": "latest",

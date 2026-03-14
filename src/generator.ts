@@ -133,8 +133,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 			const hasHeaderGap = opts.centerPages && lines.length < LINES_PER_PAGE && lines[0]?.type === LineType.SurahHeader;
 			const slots = hasHeaderGap ? lines.length + 1 : lines.length;
 			const centerOffset = opts.centerPages && slots < LINES_PER_PAGE ? Math.floor((LINES_PER_PAGE - slots) / 2) : 0;
-			for (let i = 0; i < lines.length; i++) {
-				const l = lines[i]!;
+			for (const [i, l] of lines.entries()) {
 				const surahNum = l.surah_number ?? undefined;
 				const gridLine = l.line + centerOffset + (hasHeaderGap && i > 0 ? 1 : 0);
 				allLineMetadata.push({
