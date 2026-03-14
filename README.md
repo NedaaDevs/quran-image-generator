@@ -64,7 +64,6 @@ By default, images include ayah end markers (ornamental numbered circles) and su
 
 The surah frame template is exported separately to `markers/surah-frame.png` for apps to composite with their own styling.
 
-> **TODO:** The surah header ornamental frame shape does not yet match the printed Mushaf. This is a known issue being worked on.
 
 ## Output structure
 
