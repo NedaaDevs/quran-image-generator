@@ -15,15 +15,15 @@ import {
 	measurePage,
 	renderBasmala,
 	renderBlankLine,
-	renderFullPage,
-	renderLine,
 	renderSurahFrame,
 	renderSurahHeader,
 	renderSurahName,
 	setBasmalaText,
 } from "./renderer";
+import { renderFullPageV1, renderLineV1 } from "./renderer-v1";
+import { renderFullPageV2, renderLineV2 } from "./renderer-v2";
 import type { GlyphBounds } from "./types";
-import { type FontVersion, ImageFormat, LINES_PER_PAGE, LineType, RenderMode } from "./types";
+import { FontVersion, ImageFormat, LINES_PER_PAGE, LineType, RenderMode } from "./types";
 
 export interface GeneratorOptions {
 	version: FontVersion;
@@ -105,6 +105,10 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 	const allLineMetadata: LineMetadata[] = [];
 
 	const pageSet = opts.pages ? new Set(opts.pages) : null;
+
+	// V1/V4 use justified glyph-by-glyph layout; V2 uses centered glyph-by-glyph layout
+	const renderLine = opts.version === FontVersion.V2 ? renderLineV2 : renderLineV1;
+	const renderFullPage = opts.version === FontVersion.V2 ? renderFullPageV2 : renderFullPageV1;
 
 	for (let page = opts.startPage; page <= opts.endPage; page++) {
 		if (pageSet && !pageSet.has(page)) continue;
