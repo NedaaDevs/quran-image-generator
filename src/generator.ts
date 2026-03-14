@@ -118,19 +118,9 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 
 	for (let page = opts.startPage; page <= opts.endPage; page++) {
 		if (pageSet && !pageSet.has(page)) continue;
+		boundsDb.clearPage(page);
 		const fontFamily = registerPageFont(fontsDir, page, opts.version);
 		const lines = db.getPageLines(page);
-
-		for (const l of lines) {
-			const surahNum = l.surah_number ?? undefined;
-			allLineMetadata.push({
-				page,
-				line: l.line,
-				type: l.type,
-				surahNumber: surahNum,
-				surahName: l.type === LineType.SurahHeader && surahNum ? surahMeta[surahNum]?.name : undefined,
-			});
-		}
 
 		const lineInputs = lines.map((l) => ({
 			...l,
@@ -138,6 +128,30 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 		}));
 
 		if (opts.mode === RenderMode.Page) {
+			// Remap metadata to output grid positions (same centering as renderers)
+			const hasHeaderGap = lines.length < LINES_PER_PAGE && lines[0]?.type === LineType.SurahHeader;
+			const slots = hasHeaderGap ? lines.length + 1 : lines.length;
+			const centerOffset = slots < LINES_PER_PAGE ? Math.floor((LINES_PER_PAGE - slots) / 2) : 0;
+			const toSrcLine = (lineNum: number) => {
+				const raw = lineNum - centerOffset;
+				if (hasHeaderGap && raw === 2) return -1;
+				return hasHeaderGap && raw > 2 ? raw - 1 : raw;
+			};
+			const lineTypeMap = new Map(lines.map((l) => [l.line, l]));
+			for (let lineNum = 1; lineNum <= LINES_PER_PAGE; lineNum++) {
+				const srcLine = toSrcLine(lineNum);
+				const lineInfo = srcLine > 0 ? lineTypeMap.get(srcLine) : undefined;
+				if (lineInfo) {
+					const surahNum = lineInfo.surah_number ?? undefined;
+					allLineMetadata.push({
+						page,
+						line: lineNum,
+						type: lineInfo.type,
+						surahNumber: surahNum,
+						surahName: lineInfo.type === LineType.SurahHeader && surahNum ? surahMeta[surahNum]?.name : undefined,
+					});
+				}
+			}
 			const { buffer, bounds } = renderFullPage(
 				fontFamily,
 				lineInputs,
@@ -164,16 +178,32 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 			const lineTypeMap = new Map(lines.map((l) => [l.line, l]));
 			const blankImg = await optimize(renderBlankLine(opts.width, lineHeight, fmt));
 
-			// Center content vertically on pages with fewer than 15 lines (e.g. pages 1-2)
-			const contentCount = lines.length;
-			const centerOffset = contentCount < LINES_PER_PAGE ? Math.floor((LINES_PER_PAGE - contentCount) / 2) : 0;
+			// Centered pages (1-2): blank gap after surah header for proper vertical centering
+			const hasHeaderGap = lines.length < LINES_PER_PAGE && lines[0]?.type === LineType.SurahHeader;
+			const slots = hasHeaderGap ? lines.length + 1 : lines.length;
+			const centerOffset = slots < LINES_PER_PAGE ? Math.floor((LINES_PER_PAGE - slots) / 2) : 0;
+			const toSrcLine = (lineNum: number) => {
+				const raw = lineNum - centerOffset;
+				if (hasHeaderGap && raw === 2) return -1;
+				return hasHeaderGap && raw > 2 ? raw - 1 : raw;
+			};
 
 			// Always output full grid — blank images for empty slots
 			for (let lineNum = 1; lineNum <= LINES_PER_PAGE; lineNum++) {
-				// Map output slot to source line (shifted by centering offset)
-				const srcLine = lineNum - centerOffset;
-				const ld = lineMap.get(srcLine);
-				const lineInfo = lineTypeMap.get(srcLine);
+				const srcLine = toSrcLine(lineNum);
+				const ld = srcLine > 0 ? lineMap.get(srcLine) : undefined;
+				const lineInfo = srcLine > 0 ? lineTypeMap.get(srcLine) : undefined;
+
+				if (lineInfo) {
+					const surahNum = lineInfo.surah_number ?? undefined;
+					allLineMetadata.push({
+						page,
+						line: lineNum,
+						type: lineInfo.type,
+						surahNumber: surahNum,
+						surahName: lineInfo.type === LineType.SurahHeader && surahNum ? surahMeta[surahNum]?.name : undefined,
+					});
+				}
 				const filePath = path.join(outDir, `${pad(lineNum, 3)}.${ext}`);
 
 				if (ld && ld.glyphs.length > 0) {
@@ -189,6 +219,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 						fmt,
 					);
 					await Bun.write(filePath, await optimize(buffer));
+					for (const b of bounds) b.line = lineNum;
 					boundsDb.writeBounds(bounds);
 					if (opts.boundsJson) jsonBounds.push(...bounds);
 					boundsCount += bounds.length;

@@ -11,7 +11,7 @@ import {
 	type RenderPageResult,
 	toMime,
 } from "./renderer";
-import { type GlyphBounds, ImageFormat, LINES_PER_PAGE, type LineInput, type MeasuredLine } from "./types";
+import { type GlyphBounds, ImageFormat, LINES_PER_PAGE, type LineInput, LineType, type MeasuredLine } from "./types";
 
 // Renders glyphs individually with inter-word gap distribution for justified layout.
 // Groups word+marker pairs to prevent markers from floating away from their word.
@@ -138,11 +138,19 @@ export const renderFullPageV1 = (
 	const lineTypeMap = new Map(lines.map((l) => [l.line, l]));
 	const allBounds: GlyphBounds[] = [];
 
-	// Center content vertically on pages with fewer than 15 lines (e.g. pages 1-2)
-	const centerOffset = lines.length < LINES_PER_PAGE ? Math.floor((LINES_PER_PAGE - lines.length) / 2) : 0;
+	// Centered pages (1-2): blank gap after surah header for proper vertical centering
+	const hasHeaderGap = lines.length < LINES_PER_PAGE && lines[0]?.type === LineType.SurahHeader;
+	const slots = hasHeaderGap ? lines.length + 1 : lines.length;
+	const centerOffset = slots < LINES_PER_PAGE ? Math.floor((LINES_PER_PAGE - slots) / 2) : 0;
+	const toSrcLine = (lineNum: number) => {
+		const raw = lineNum - centerOffset;
+		if (hasHeaderGap && raw === 2) return -1;
+		return hasHeaderGap && raw > 2 ? raw - 1 : raw;
+	};
 
 	for (let lineNum = 1; lineNum <= LINES_PER_PAGE; lineNum++) {
-		const srcLine = lineNum - centerOffset;
+		const srcLine = toSrcLine(lineNum);
+		if (srcLine < 0) continue;
 		const ld = lineMap.get(srcLine);
 		const lineInfo = lineTypeMap.get(srcLine);
 		const y = (lineNum - 1) * lineHeight;
