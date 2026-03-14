@@ -10,7 +10,16 @@ import {
 	type RenderPageResult,
 	toMime,
 } from "./renderer";
-import { type GlyphBounds, ImageFormat, LINES_PER_PAGE, type LineInput, LineType, type MeasuredLine } from "./types";
+import {
+	FontVersion,
+	type GlyphBounds,
+	hPadding,
+	ImageFormat,
+	LINES_PER_PAGE,
+	type LineInput,
+	LineType,
+	type MeasuredLine,
+} from "./types";
 
 // Positions each glyph individually in a centered block on the canvas.
 // Marker widths are always included in the layout so gaps are preserved
@@ -39,7 +48,10 @@ const drawLineCentered = (
 	const shouldDraw = (g: { isMarker?: boolean }) => !g.isMarker || withMarkers;
 
 	const bounds: GlyphBounds[] = [];
-	let x = (width + total) / 2;
+	const pad = hPadding(FontVersion.V2);
+	const contentWidth = width - 2 * pad;
+	// RTL: right-align text lines, center non-text (basmala, short surahs)
+	let x = ld.type === LineType.Text ? width - pad : pad + (contentWidth + total) / 2;
 	for (const g of glyphs) {
 		x -= g.w;
 		if (shouldDraw(g)) ctx.fillText(g.text_qpc, x, baseline);
@@ -94,7 +106,8 @@ export const renderFullPageV2 = (
 	format: ImageFormat = ImageFormat.PNG,
 	centerPages = false,
 ): RenderPageResult => {
-	const { lineData, fontSize, lineHeight, ascent, descent } = measurePage(fontFamily, lines, width);
+	const pad = hPadding(FontVersion.V2);
+	const { lineData, fontSize, lineHeight, ascent, descent } = measurePage(fontFamily, lines, width, width - 2 * pad);
 	const height = LINES_PER_PAGE * lineHeight;
 
 	const canvas = createCanvas(width, height);

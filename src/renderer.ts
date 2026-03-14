@@ -32,7 +32,12 @@ export interface RenderPageResult {
 }
 
 // Measures all glyphs on a page and computes fontSize to fit the widest text line exactly.
-export const measurePage = (fontFamily: string, lines: LineInput[], width: number): PageMetrics => {
+export const measurePage = (
+	fontFamily: string,
+	lines: LineInput[],
+	width: number,
+	contentWidth?: number,
+): PageMetrics => {
 	// Measure at REF_SIZE first, then scale — gives us the ratio to fit widest line to canvas width
 	mx.font = `${REF_SIZE}px "${fontFamily}"`;
 
@@ -47,7 +52,7 @@ export const measurePage = (fontFamily: string, lines: LineInput[], width: numbe
 		return { ...l, glyphs: measured, total };
 	});
 
-	const fontSize = Math.floor(REF_SIZE * (width / maxRefWidth));
+	const fontSize = Math.floor(REF_SIZE * ((contentWidth ?? width) / maxRefWidth));
 	mx.font = `${fontSize}px "${fontFamily}"`;
 
 	// Page-wide ascent/descent ensures consistent baseline across all lines

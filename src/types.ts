@@ -19,6 +19,18 @@ export const FontVersion = {
 
 export type FontVersion = (typeof FontVersion)[keyof typeof FontVersion];
 
+// Horizontal inset from each edge per font version
+export const hPadding = (version: FontVersion): number => {
+	switch (version) {
+		case FontVersion.V1:
+			return 0;
+		case FontVersion.V2:
+			return 40;
+		case FontVersion.V4:
+			return 0;
+	}
+};
+
 export const ImageFormat = {
 	PNG: "png",
 	WebP: "webp",
