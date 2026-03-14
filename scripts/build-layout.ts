@@ -15,9 +15,8 @@ const VERSIONS: Record<string, { layout: string; wbw: string }> = {
 		layout: "qpc-v2-15-lines.db",
 		wbw: "qpc-v2.db",
 	},
-	// V4 tajweed uses V1 layout (same 1405H edition) with V4 color glyph codes
 	v4: {
-		layout: "qpc-v1-15-lines.db",
+		layout: "qpc-v4-tajweed-15-lines.db",
 		wbw: "qpc-v4.db",
 	},
 };
