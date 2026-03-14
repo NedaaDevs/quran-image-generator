@@ -143,6 +143,7 @@ export const promptOptions = async (root: string): Promise<GeneratorOptions> => 
 	});
 
 	const withMarkers = await confirm({ message: "Include markers?", default: true });
+	const centerPages = await confirm({ message: "Center pages 1-2?", default: false });
 	const quantizeAlpha =
 		!isDebug &&
 		format === ImageFormat.PNG &&
@@ -156,6 +157,7 @@ export const promptOptions = async (root: string): Promise<GeneratorOptions> => 
 		endPage,
 		width,
 		withMarkers,
+		centerPages,
 		showBounds,
 		boundsJson: false,
 		quantizeAlpha,

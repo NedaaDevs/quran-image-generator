@@ -94,6 +94,7 @@ if (!hasArgs) {
 		endPage,
 		width,
 		withMarkers,
+		centerPages: process.argv.includes("center"),
 		showBounds,
 		boundsJson,
 		quantizeAlpha,

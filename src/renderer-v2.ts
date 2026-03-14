@@ -92,6 +92,7 @@ export const renderFullPageV2 = (
 	showBounds = false,
 	headerGlyphs: Record<string, string> = {},
 	format: ImageFormat = ImageFormat.PNG,
+	centerPages = false,
 ): RenderPageResult => {
 	const { lineData, fontSize, lineHeight, ascent, descent } = measurePage(fontFamily, lines, width);
 	const height = LINES_PER_PAGE * lineHeight;
@@ -103,10 +104,10 @@ export const renderFullPageV2 = (
 	const lineTypeMap = new Map(lines.map((l) => [l.line, l]));
 	const allBounds: GlyphBounds[] = [];
 
-	// Centered pages (1-2): blank gap after surah header for proper vertical centering
-	const hasHeaderGap = lines.length < LINES_PER_PAGE && lines[0]?.type === LineType.SurahHeader;
+	// When centering, add blank gap after surah header on pages with < 15 lines
+	const hasHeaderGap = centerPages && lines.length < LINES_PER_PAGE && lines[0]?.type === LineType.SurahHeader;
 	const slots = hasHeaderGap ? lines.length + 1 : lines.length;
-	const centerOffset = slots < LINES_PER_PAGE ? Math.floor((LINES_PER_PAGE - slots) / 2) : 0;
+	const centerOffset = centerPages && slots < LINES_PER_PAGE ? Math.floor((LINES_PER_PAGE - slots) / 2) : 0;
 	const toSrcLine = (lineNum: number) => {
 		const raw = lineNum - centerOffset;
 		if (hasHeaderGap && raw === 2) return -1;

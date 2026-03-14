@@ -35,6 +35,7 @@ export interface GeneratorOptions {
 	pages?: number[];
 	width: number;
 	withMarkers: boolean;
+	centerPages: boolean;
 	showBounds: boolean;
 	boundsJson: boolean;
 	quantizeAlpha: boolean;
@@ -128,29 +129,21 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 		}));
 
 		if (opts.mode === RenderMode.Page) {
-			// Remap metadata to output grid positions (same centering as renderers)
-			const hasHeaderGap = lines.length < LINES_PER_PAGE && lines[0]?.type === LineType.SurahHeader;
+			// Remap metadata to grid positions when centering (matches renderer's remapping)
+			const hasHeaderGap = opts.centerPages && lines.length < LINES_PER_PAGE && lines[0]?.type === LineType.SurahHeader;
 			const slots = hasHeaderGap ? lines.length + 1 : lines.length;
-			const centerOffset = slots < LINES_PER_PAGE ? Math.floor((LINES_PER_PAGE - slots) / 2) : 0;
-			const toSrcLine = (lineNum: number) => {
-				const raw = lineNum - centerOffset;
-				if (hasHeaderGap && raw === 2) return -1;
-				return hasHeaderGap && raw > 2 ? raw - 1 : raw;
-			};
-			const lineTypeMap = new Map(lines.map((l) => [l.line, l]));
-			for (let lineNum = 1; lineNum <= LINES_PER_PAGE; lineNum++) {
-				const srcLine = toSrcLine(lineNum);
-				const lineInfo = srcLine > 0 ? lineTypeMap.get(srcLine) : undefined;
-				if (lineInfo) {
-					const surahNum = lineInfo.surah_number ?? undefined;
-					allLineMetadata.push({
-						page,
-						line: lineNum,
-						type: lineInfo.type,
-						surahNumber: surahNum,
-						surahName: lineInfo.type === LineType.SurahHeader && surahNum ? surahMeta[surahNum]?.name : undefined,
-					});
-				}
+			const centerOffset = opts.centerPages && slots < LINES_PER_PAGE ? Math.floor((LINES_PER_PAGE - slots) / 2) : 0;
+			for (let i = 0; i < lines.length; i++) {
+				const l = lines[i]!;
+				const surahNum = l.surah_number ?? undefined;
+				const gridLine = l.line + centerOffset + (hasHeaderGap && i > 0 ? 1 : 0);
+				allLineMetadata.push({
+					page,
+					line: gridLine,
+					type: l.type,
+					surahNumber: surahNum,
+					surahName: l.type === LineType.SurahHeader && surahNum ? surahMeta[surahNum]?.name : undefined,
+				});
 			}
 			const { buffer, bounds } = renderFullPage(
 				fontFamily,
@@ -161,6 +154,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 				opts.showBounds,
 				headerGlyphs,
 				fmt,
+				opts.centerPages,
 			);
 			const outDir = path.join(opts.outputDir, opts.version, String(opts.width), "pages");
 			mkdirSync(outDir, { recursive: true });
@@ -178,10 +172,10 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 			const lineTypeMap = new Map(lines.map((l) => [l.line, l]));
 			const blankImg = await optimize(renderBlankLine(opts.width, lineHeight, fmt));
 
-			// Centered pages (1-2): blank gap after surah header for proper vertical centering
-			const hasHeaderGap = lines.length < LINES_PER_PAGE && lines[0]?.type === LineType.SurahHeader;
+			// When centerPages is on, center content vertically with a gap after surah header
+			const hasHeaderGap = opts.centerPages && lines.length < LINES_PER_PAGE && lines[0]?.type === LineType.SurahHeader;
 			const slots = hasHeaderGap ? lines.length + 1 : lines.length;
-			const centerOffset = slots < LINES_PER_PAGE ? Math.floor((LINES_PER_PAGE - slots) / 2) : 0;
+			const centerOffset = opts.centerPages && slots < LINES_PER_PAGE ? Math.floor((LINES_PER_PAGE - slots) / 2) : 0;
 			const toSrcLine = (lineNum: number) => {
 				const raw = lineNum - centerOffset;
 				if (hasHeaderGap && raw === 2) return -1;
