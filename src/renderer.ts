@@ -80,8 +80,18 @@ export const setBasmalaText = (text: string) => {
 	BASMALA_TEXT = text;
 };
 
+// Direct codepoint lookup for surah names (used by color fonts that lack GSUB ligatures)
+let surahNameGlyphs: Record<string, string> = {};
+export const setSurahNameGlyphs = (glyphs: Record<string, string>) => {
+	surahNameGlyphs = glyphs;
+};
+
 // Builds "سورة <name>" ligature text — v1/v4 need "surah-icon" prefix, v2 bakes it in
 const surahNameText = (surahNumber: number, fontSize: number): string => {
+	// Color fonts use direct codepoint mapping instead of GSUB ligatures
+	const directGlyph = surahNameGlyphs[String(surahNumber)];
+	if (directGlyph) return directGlyph;
+
 	const name = `surah${String(surahNumber).padStart(3, "0")}`;
 	mx.font = `${fontSize}px "${SURAH_NAME_FONT}"`;
 	const iconW = mx.measureText("surah-icon").width;

@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { losslessCompressPng } from "@napi-rs/image";
 
@@ -14,6 +14,7 @@ import {
 	renderSurahHeader,
 	renderSurahName,
 	setBasmalaText,
+	setSurahNameGlyphs,
 } from "./renderer";
 import { renderFullPageV1, renderLineV1 } from "./renderer-v1";
 import { renderFullPageV2, renderLineV2 } from "./renderer-v2";
@@ -34,6 +35,7 @@ export interface GeneratorOptions {
 	showBounds: boolean;
 	boundsJson: boolean;
 	quantizeAlpha: boolean;
+	colorSurahName: boolean;
 	pngquantBin?: string;
 	outputDir: string;
 	dataDir: string;
@@ -50,7 +52,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 	const fontsDir = path.join(opts.dataDir, opts.version, "fonts");
 	const db = createDb(dbPath);
 	const surahMeta = loadSurahMeta(opts.dataDir, opts.version);
-	registerSurahFonts(opts.dataDir, opts.version);
+	registerSurahFonts(opts.dataDir, opts.version, opts.colorSurahName);
 
 	// Basmala glyph codes from page 1 line 2 (ayah 1:1) — split markers to exclude ayah number
 	const basWords = db.getLineGlyphs(1, 2, true);
@@ -64,6 +66,14 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 	// Surah header font codepoint mapping (surah-N → Unicode glyph)
 	const headerGlyphsPath = path.join(opts.dataDir, "common", "surah-header-ligatures.json");
 	const headerGlyphs: Record<string, string> = JSON.parse(await Bun.file(headerGlyphsPath).text());
+
+	// Color surah-name font uses direct codepoints instead of GSUB ligatures
+	if (opts.colorSurahName) {
+		const colorLigsPath = path.join(opts.dataDir, "common", "surah-name-color-ligatures.json");
+		if (existsSync(colorLigsPath)) {
+			setSurahNameGlyphs(JSON.parse(await Bun.file(colorLigsPath).text()));
+		}
+	}
 
 	const fmt = opts.format;
 	const ext = fmt === ImageFormat.WebP ? "webp" : "png";

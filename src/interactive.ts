@@ -148,6 +148,8 @@ export const promptOptions = async (root: string): Promise<GeneratorOptions> => 
 		!isDebug &&
 		format === ImageFormat.PNG &&
 		(await confirm({ message: "Quantize alpha? (smaller PNGs)", default: false }));
+	const colorSurahName =
+		version === FontVersion.V4 && (await confirm({ message: "Color surah names?", default: true }));
 
 	return {
 		version,
@@ -161,6 +163,7 @@ export const promptOptions = async (root: string): Promise<GeneratorOptions> => 
 		showBounds,
 		boundsJson: false,
 		quantizeAlpha,
+		colorSurahName,
 		pages: randomPages,
 		outputDir: isDebug ? path.join(outputDir, "debug") : outputDir,
 		dataDir,

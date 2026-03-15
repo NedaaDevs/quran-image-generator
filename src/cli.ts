@@ -76,10 +76,11 @@ if (!hasArgs) {
 	const showBounds = process.argv.includes("bounds");
 	const boundsJson = process.argv.includes("json");
 	const quantizeAlpha = process.argv.includes("quantize");
+	const colorSurahName = process.argv.includes("color-surah");
 
 	if (startPage < 1 || endPage > 604 || startPage > endPage) {
 		console.error(
-			"Usage: bun src/cli.ts [startPage] [endPage] [width] [mode] [v1|v2|v4] [no-markers] [webp] [bounds] [json] [quantize]",
+			"Usage: bun src/cli.ts [startPage] [endPage] [width] [mode] [v1|v2|v4] [no-markers] [webp] [bounds] [json] [quantize] [color-surah]",
 		);
 		process.exit(1);
 	}
@@ -109,6 +110,7 @@ if (!hasArgs) {
 		showBounds,
 		boundsJson,
 		quantizeAlpha,
+		colorSurahName,
 		pngquantBin,
 		outputDir: path.join(ROOT, "output"),
 		dataDir,

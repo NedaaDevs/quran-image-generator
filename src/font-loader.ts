@@ -19,8 +19,10 @@ const registerFont = (fontPath: string, family: string) => {
 	registeredFonts.add(family);
 };
 
-export const registerSurahFonts = (dataDir: string, version: FontVersion) => {
-	registerFont(path.join(dataDir, "common", "fonts", `surah-name-${version}.ttf`), SURAH_NAME_FONT);
+export const registerSurahFonts = (dataDir: string, version: FontVersion, colorSurahName = false) => {
+	const colorPath = path.join(dataDir, "common", "fonts", `surah-name-${version}-color.ttf`);
+	const regularPath = path.join(dataDir, "common", "fonts", `surah-name-${version}.ttf`);
+	registerFont(colorSurahName && existsSync(colorPath) ? colorPath : regularPath, SURAH_NAME_FONT);
 	registerFont(path.join(dataDir, "common", "fonts", "surah-header.ttf"), SURAH_HEADER_FONT);
 	// Page 1 font contains basmala glyphs matching the version's calligraphic style
 	registerFont(path.join(dataDir, version, "fonts", "p1.ttf"), BASMALA_FONT);
