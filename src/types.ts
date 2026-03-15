@@ -23,11 +23,11 @@ export type FontVersion = (typeof FontVersion)[keyof typeof FontVersion];
 export const hPadding = (version: FontVersion): number => {
 	switch (version) {
 		case FontVersion.V1:
-			return 0;
+			return 40;
 		case FontVersion.V2:
 			return 40;
 		case FontVersion.V4:
-			return 0;
+			return 40;
 	}
 };
 

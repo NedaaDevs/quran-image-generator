@@ -11,7 +11,16 @@ import {
 	type RenderPageResult,
 	toMime,
 } from "./renderer";
-import { type GlyphBounds, ImageFormat, LINES_PER_PAGE, type LineInput, LineType, type MeasuredLine } from "./types";
+import {
+	FontVersion,
+	type GlyphBounds,
+	hPadding,
+	ImageFormat,
+	LINES_PER_PAGE,
+	type LineInput,
+	LineType,
+	type MeasuredLine,
+} from "./types";
 
 // V4: Tajweed-colored fonts with V1 justified layout.
 // Layout: identical to V1 (8,820 lines, zero diff). Glyph codes: V2 range (U+FC41).
@@ -59,9 +68,11 @@ const drawLineJustified = (
 	};
 
 	const bounds: GlyphBounds[] = [];
+	const pad = hPadding(FontVersion.V4);
+	const contentWidth = width - 2 * pad;
 
 	if (isSpecial(ld.type)) {
-		let x = (width + total) / 2;
+		let x = pad + (contentWidth + total) / 2;
 		for (const g of glyphs) {
 			x -= g.w;
 			if (shouldDraw(g)) ctx.fillText(g.text_qpc, x, baseline);
@@ -81,9 +92,9 @@ const drawLineJustified = (
 			}
 		}
 
-		const fillRatio = total / width;
-		const gap = fillRatio > 0.7 && groups.length > 1 ? (width - total) / (groups.length - 1) : 0;
-		let x = width;
+		const fillRatio = total / contentWidth;
+		const gap = fillRatio > 0.7 && groups.length > 1 ? (contentWidth - total) / (groups.length - 1) : 0;
+		let x = width - pad;
 		for (const group of groups) {
 			for (const g of group.glyphs) {
 				x -= g.w;
@@ -130,7 +141,8 @@ export const renderFullPageV4 = (
 	format: ImageFormat = ImageFormat.PNG,
 	centerPages = false,
 ): RenderPageResult => {
-	const { lineData, fontSize, lineHeight, ascent, descent } = measurePage(fontFamily, lines, width);
+	const pad = hPadding(FontVersion.V4);
+	const { lineData, fontSize, lineHeight, ascent, descent } = measurePage(fontFamily, lines, width, width - 2 * pad);
 	const height = LINES_PER_PAGE * lineHeight;
 
 	const canvas = createCanvas(width, height);
