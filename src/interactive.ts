@@ -164,6 +164,7 @@ export const promptOptions = async (root: string): Promise<GeneratorOptions> => 
 		boundsJson: false,
 		quantizeAlpha,
 		colorSurahName,
+		bench: false,
 		pages: randomPages,
 		outputDir: isDebug ? path.join(outputDir, "debug") : outputDir,
 		dataDir,

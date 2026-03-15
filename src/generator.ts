@@ -37,6 +37,7 @@ export interface GeneratorOptions {
 	quantizeAlpha: boolean;
 	colorSurahName: boolean;
 	pngquantBin?: string;
+	bench: boolean;
 	outputDir: string;
 	dataDir: string;
 	onProgress?: (page: number, total: number) => void;
@@ -93,9 +94,15 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 			child.stdin?.end(buf);
 		});
 
+	const perf = { render: 0, optimize: 0, write: 0, db: 0, font: 0 };
+	const now = () => performance.now();
+
 	const optimize = async (buf: Buffer) => {
 		if (fmt !== ImageFormat.PNG) return buf;
-		return opts.quantizeAlpha ? quantizePng(buf) : losslessCompressPng(buf);
+		const t = now();
+		const result = opts.quantizeAlpha ? await quantizePng(buf) : await losslessCompressPng(buf);
+		perf.optimize += now() - t;
+		return result;
 	};
 
 	const pad = (n: number, len: number) => String(n).padStart(len, "0");
@@ -127,7 +134,9 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 	for (let page = opts.startPage; page <= opts.endPage; page++) {
 		if (pageSet && !pageSet.has(page)) continue;
 		boundsDb.clearPage(page);
+		let t = now();
 		const fontFamily = registerPageFont(fontsDir, page, opts.version);
+		perf.font += now() - t;
 		const lines = db.getPageLines(page);
 
 		const lineInputs = lines.map((l) => ({
@@ -214,6 +223,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 				const filePath = path.join(outDir, `${pad(lineNum, 3)}.${ext}`);
 
 				if (ld && ld.glyphs.length > 0) {
+					t = now();
 					const { buffer, bounds } = renderLine(
 						fontFamily,
 						fontSize,
@@ -225,19 +235,36 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 						opts.showBounds,
 						fmt,
 					);
-					await Bun.write(filePath, await optimize(buffer));
+					perf.render += now() - t;
+					const optimized = await optimize(buffer);
+					t = now();
+					await Bun.write(filePath, optimized);
+					perf.write += now() - t;
+					t = now();
 					for (const b of bounds) b.line = lineNum;
 					boundsDb.writeBounds(bounds);
+					perf.db += now() - t;
 					if (opts.boundsJson) jsonBounds.push(...bounds);
 					boundsCount += bounds.length;
 				} else if (lineInfo?.type === LineType.SurahHeader && lineInfo.surah_number) {
 					// With markers: frame + name; without: name only (frame is a theme asset)
+					t = now();
 					const hdr = opts.withMarkers
 						? renderSurahHeader(opts.width, lineHeight, lineInfo.surah_number, headerGlyphs, fmt)
 						: renderSurahName(opts.width, lineHeight, lineInfo.surah_number, fmt);
-					await Bun.write(filePath, await optimize(hdr));
+					perf.render += now() - t;
+					const hdrOpt = await optimize(hdr);
+					t = now();
+					await Bun.write(filePath, hdrOpt);
+					perf.write += now() - t;
 				} else if (lineInfo?.type === LineType.Basmala) {
-					await Bun.write(filePath, await optimize(renderBasmala(opts.width, lineHeight, fontSize, fmt)));
+					t = now();
+					const bas = renderBasmala(opts.width, lineHeight, fontSize, fmt);
+					perf.render += now() - t;
+					const basOpt = await optimize(bas);
+					t = now();
+					await Bun.write(filePath, basOpt);
+					perf.write += now() - t;
 				} else {
 					await Bun.write(filePath, blankImg);
 				}
@@ -267,5 +294,14 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 	);
 
 	db.close();
+
+	if (opts.bench) {
+		const total = perf.font + perf.render + perf.optimize + perf.write + perf.db;
+		const fmt = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
+		console.log(
+			`\n  Perf: font=${fmt(perf.font)} render=${fmt(perf.render)} optimize=${fmt(perf.optimize)} write=${fmt(perf.write)} db=${fmt(perf.db)} total=${fmt(total)}`,
+		);
+	}
+
 	return { count, boundsCount };
 };

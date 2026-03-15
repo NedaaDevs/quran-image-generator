@@ -55,7 +55,7 @@ if (!hasArgs) {
 		`\nRendering pages ${opts.startPage}-${opts.endPage} at ${opts.width}px (${opts.version}, ${opts.mode} mode, ${opts.format})...\n`,
 	);
 
-	const { count, boundsCount } = await generate({ ...opts, pngquantBin });
+	const { count, boundsCount } = await generate({ ...opts, pngquantBin, bench: false });
 
 	const label = opts.mode === RenderMode.Page ? "pages" : "lines";
 	console.log(`\nDone — ${count} ${label} across ${opts.endPage - opts.startPage + 1} pages`);
@@ -77,6 +77,7 @@ if (!hasArgs) {
 	const boundsJson = process.argv.includes("json");
 	const quantizeAlpha = process.argv.includes("quantize");
 	const colorSurahName = process.argv.includes("color-surah");
+	const bench = process.argv.includes("bench");
 
 	if (startPage < 1 || endPage > 604 || startPage > endPage) {
 		console.error(
@@ -112,6 +113,7 @@ if (!hasArgs) {
 		quantizeAlpha,
 		colorSurahName,
 		pngquantBin,
+		bench,
 		outputDir: path.join(ROOT, "output"),
 		dataDir,
 		onProgress: (page) => process.stdout.write(`\r  page ${page}/${endPage}`),
