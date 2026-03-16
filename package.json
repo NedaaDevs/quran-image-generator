@@ -22,6 +22,7 @@
     "@inquirer/prompts": "^8.3.0",
     "@napi-rs/canvas": "^0.1.96",
     "@napi-rs/image": "^1.12.0",
+    "canvas": "^3.2.1",
     "pixelmatch": "^7.1.0",
     "pngjs": "^7.0.0",
     "pngquant-bin": "^9.0.0"

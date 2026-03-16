@@ -1,4 +1,4 @@
-import { createCanvas } from "@napi-rs/canvas";
+import { createCanvas } from "./canvas-factory";
 import {
 	type CanvasContext,
 	drawBoundsOverlay,

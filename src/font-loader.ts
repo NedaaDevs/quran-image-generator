@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { GlobalFonts } from "@napi-rs/canvas";
+import { registerFont } from "./canvas-factory";
 import type { FontVersion } from "./types";
 
 // Surah name fonts use ligatures: "surah001" → calligraphic glyph
@@ -12,20 +12,20 @@ export const BASMALA_FONT = "Basmala";
 
 const registeredFonts = new Set<string>();
 
-const registerFont = (fontPath: string, family: string) => {
+const register = (fontPath: string, family: string) => {
 	if (registeredFonts.has(family)) return;
 	if (!existsSync(fontPath)) throw new Error(`Font not found: ${fontPath}`);
-	GlobalFonts.registerFromPath(fontPath, family);
+	registerFont(fontPath, family);
 	registeredFonts.add(family);
 };
 
 export const registerSurahFonts = (dataDir: string, version: FontVersion, colorSurahName = false) => {
 	const colorPath = path.join(dataDir, "common", "fonts", `surah-name-${version}-color.ttf`);
 	const regularPath = path.join(dataDir, "common", "fonts", `surah-name-${version}.ttf`);
-	registerFont(colorSurahName && existsSync(colorPath) ? colorPath : regularPath, SURAH_NAME_FONT);
-	registerFont(path.join(dataDir, "common", "fonts", "surah-header.ttf"), SURAH_HEADER_FONT);
+	register(colorSurahName && existsSync(colorPath) ? colorPath : regularPath, SURAH_NAME_FONT);
+	register(path.join(dataDir, "common", "fonts", "surah-header.ttf"), SURAH_HEADER_FONT);
 	// Page 1 font contains basmala glyphs matching the version's calligraphic style
-	registerFont(path.join(dataDir, version, "fonts", "p1.ttf"), BASMALA_FONT);
+	register(path.join(dataDir, version, "fonts", "p1.ttf"), BASMALA_FONT);
 };
 
 export const registerPageFont = (fontsDir: string, page: number, version: FontVersion) => {
@@ -36,6 +36,6 @@ export const registerPageFont = (fontsDir: string, page: number, version: FontVe
 		throw new Error(`Font not found: ${fontPath}`);
 	}
 
-	GlobalFonts.registerFromPath(fontPath, fontFamily);
+	registerFont(fontPath, fontFamily);
 	return fontFamily;
 };

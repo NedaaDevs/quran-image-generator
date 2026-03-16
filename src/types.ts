@@ -80,5 +80,12 @@ export interface MeasuredLine {
 	total: number;
 }
 
+export const RenderEngine = {
+	Skia: "skia",
+	Cairo: "cairo",
+} as const;
+
+export type RenderEngine = (typeof RenderEngine)[keyof typeof RenderEngine];
+
 // Standard Mushaf page grid — all pages output this many line slots
 export const LINES_PER_PAGE = 15;

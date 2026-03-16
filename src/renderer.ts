@@ -1,4 +1,4 @@
-import { createCanvas } from "@napi-rs/canvas";
+import { createCanvas } from "./canvas-factory";
 import { BASMALA_FONT, SURAH_HEADER_FONT, SURAH_NAME_FONT } from "./font-loader";
 import { type GlyphBounds, ImageFormat, type LineInput, LineType, type MeasuredLine } from "./types";
 
@@ -11,6 +11,7 @@ const REF_SIZE = 100;
 const mc = createCanvas(1, 1);
 export const mx = mc.getContext("2d");
 
+// Both engines return compatible 2D contexts — use a minimal structural type
 export type CanvasContext = ReturnType<ReturnType<typeof createCanvas>["getContext"]>;
 
 export interface PageMetrics {
@@ -280,7 +281,8 @@ export const QuranTheme = {
 
 export type QuranThemeName = keyof typeof QuranTheme;
 
-// Renders an ornamental marker circle (numeral removed) from an SVG path
+// Renders an ornamental marker circle (numeral removed) from an SVG path.
+// Always uses Skia for SVG rasterization — engine choice only affects text weight.
 export const renderMarkerCircle = (
 	svg: string,
 	theme: QuranThemeName,
@@ -290,10 +292,10 @@ export const renderMarkerCircle = (
 	const { w, h } = MarkerScale[scale];
 	const color = QuranTheme[theme].marker;
 	const colored = svg.replace("currentColor", color);
-	const canvas = createCanvas(w, h);
+	const skia = require("@napi-rs/canvas");
+	const canvas = skia.createCanvas(w, h);
 	const ctx = canvas.getContext("2d");
-	const { Image } = require("@napi-rs/canvas");
-	const img = new Image();
+	const img = new skia.Image();
 	img.src = Buffer.from(colored);
 	ctx.drawImage(img, 0, 0, w, h);
 	return canvas.toBuffer(toMime(format));

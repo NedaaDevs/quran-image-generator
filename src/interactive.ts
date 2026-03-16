@@ -3,7 +3,7 @@ import path from "node:path";
 import { confirm, input, select } from "@inquirer/prompts";
 import type { GeneratorOptions } from "./generator";
 import type { MarkerScaleName } from "./renderer";
-import { FontVersion, ImageFormat, RenderMode } from "./types";
+import { FontVersion, ImageFormat, RenderEngine, RenderMode } from "./types";
 
 const REPO = "NedaaDevs/quran-image-generator";
 const RELEASE_URL = `https://github.com/${REPO}/releases/download/assets`;
@@ -169,6 +169,7 @@ export const promptOptions = async (root: string): Promise<GeneratorOptions> => 
 		quantizeAlpha,
 		colorSurahName,
 		bench: false,
+		engine: RenderEngine.Cairo,
 		pages: randomPages,
 		outputDir: isDebug ? path.join(outputDir, "debug") : outputDir,
 		dataDir,

@@ -3,7 +3,7 @@ import path from "node:path";
 import { generate } from "./generator";
 import { promptOptions } from "./interactive";
 import type { MarkerScaleName } from "./renderer";
-import { FontVersion, ImageFormat, RenderMode } from "./types";
+import { FontVersion, ImageFormat, RenderEngine, RenderMode } from "./types";
 
 // Compiled binary uses $bunfs virtual filesystem — resolve paths from the executable location
 const isCompiled = import.meta.dir.includes("$bunfs");
@@ -56,7 +56,12 @@ if (!hasArgs) {
 		`\nRendering pages ${opts.startPage}-${opts.endPage} at ${opts.width}px (${opts.version}, ${opts.mode} mode, ${opts.format})...\n`,
 	);
 
-	const { count, boundsCount } = await generate({ ...opts, pngquantBin, bench: false });
+	const { count, boundsCount } = await generate({
+		...opts,
+		pngquantBin,
+		bench: false,
+		engine: opts.engine ?? RenderEngine.Cairo,
+	});
 
 	const label = opts.mode === RenderMode.Page ? "pages" : "lines";
 	console.log(`\nDone — ${count} ${label} across ${opts.endPage - opts.startPage + 1} pages`);
@@ -80,10 +85,11 @@ if (!hasArgs) {
 	const colorSurahName = process.argv.includes("color-surah");
 	const bench = process.argv.includes("bench");
 	const markerScale: MarkerScaleName = process.argv.includes("marker-3x") ? "3x" : "6x";
+	const engine = process.argv.includes("skia") ? RenderEngine.Skia : RenderEngine.Cairo;
 
 	if (startPage < 1 || endPage > 604 || startPage > endPage) {
 		console.error(
-			"Usage: bun src/cli.ts [startPage] [endPage] [width] [mode] [v1|v2|v4] [no-markers] [webp] [bounds] [json] [quantize] [color-surah]",
+			"Usage: bun src/cli.ts [startPage] [endPage] [width] [mode] [v1|v2|v4] [no-markers] [webp] [bounds] [json] [quantize] [color-surah] [skia]",
 		);
 		process.exit(1);
 	}
@@ -116,6 +122,7 @@ if (!hasArgs) {
 		boundsJson,
 		quantizeAlpha,
 		colorSurahName,
+		engine,
 		pngquantBin,
 		bench,
 		outputDir: path.join(ROOT, "output"),

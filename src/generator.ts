@@ -4,6 +4,7 @@ import path from "node:path";
 import { losslessCompressPng } from "@napi-rs/image";
 
 import { createBoundsDb, type LineMetadata } from "./bounds-db";
+import { setEngine } from "./canvas-factory";
 import { createDb, loadSurahMeta } from "./database";
 import { registerPageFont, registerSurahFonts } from "./font-loader";
 import {
@@ -24,7 +25,7 @@ import { renderFullPageV1, renderLineV1 } from "./renderer-v1";
 import { renderFullPageV2, renderLineV2 } from "./renderer-v2";
 import { renderFullPageV4, renderLineV4 } from "./renderer-v4";
 import type { GlyphBounds } from "./types";
-import { FontVersion, hPadding, ImageFormat, LINES_PER_PAGE, LineType, RenderMode } from "./types";
+import { FontVersion, hPadding, ImageFormat, LINES_PER_PAGE, LineType, type RenderEngine, RenderMode } from "./types";
 
 export interface GeneratorOptions {
 	version: FontVersion;
@@ -43,6 +44,7 @@ export interface GeneratorOptions {
 	colorSurahName: boolean;
 	pngquantBin?: string;
 	bench: boolean;
+	engine: RenderEngine;
 	markerScale: MarkerScaleName;
 	outputDir: string;
 	dataDir: string;
@@ -55,6 +57,7 @@ export interface GeneratorResult {
 }
 
 export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult> => {
+	setEngine(opts.engine);
 	const dbPath = path.join(opts.dataDir, opts.version, "quran-layout.db");
 	const fontsDir = path.join(opts.dataDir, opts.version, "fonts");
 	const db = createDb(dbPath);
