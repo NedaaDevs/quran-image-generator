@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { confirm, input, select } from "@inquirer/prompts";
 import type { GeneratorOptions } from "./generator";
+import type { MarkerScaleName } from "./renderer";
 import { FontVersion, ImageFormat, RenderMode } from "./types";
 
 const REPO = "NedaaDevs/quran-image-generator";
@@ -144,6 +145,7 @@ export const promptOptions = async (root: string): Promise<GeneratorOptions> => 
 
 	const withMarkers = await confirm({ message: "Include markers?", default: true });
 	const centerPages = await confirm({ message: "Center pages 1-2?", default: false });
+	const centerText = await confirm({ message: "Center text horizontally?", default: false });
 	const quantizeAlpha =
 		!isDebug &&
 		format === ImageFormat.PNG &&
@@ -160,6 +162,8 @@ export const promptOptions = async (root: string): Promise<GeneratorOptions> => 
 		width,
 		withMarkers,
 		centerPages,
+		centerText,
+		markerScale: "6x" as MarkerScaleName,
 		showBounds,
 		boundsJson: false,
 		quantizeAlpha,

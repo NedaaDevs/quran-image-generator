@@ -264,6 +264,41 @@ export const drawDecorativeLine = (
 	}
 };
 
+// Themed marker circle sizes (3:4 aspect ratio matching Ayah app convention)
+export const MarkerScale = {
+	"3x": { w: 180, h: 240 },
+	"6x": { w: 360, h: 480 },
+} as const;
+
+export type MarkerScaleName = keyof typeof MarkerScale;
+
+export const QuranTheme = {
+	light: { marker: "#B8860B", bg: "#FFFDF7" },
+	sepia: { marker: "#8B6914", bg: "#F8F1E3" },
+	dark: { marker: "#C4A265", bg: "#121212" },
+} as const;
+
+export type QuranThemeName = keyof typeof QuranTheme;
+
+// Renders an ornamental marker circle (numeral removed) from an SVG path
+export const renderMarkerCircle = (
+	svg: string,
+	theme: QuranThemeName,
+	scale: MarkerScaleName,
+	format: ImageFormat,
+): Buffer => {
+	const { w, h } = MarkerScale[scale];
+	const color = QuranTheme[theme].marker;
+	const colored = svg.replace("currentColor", color);
+	const canvas = createCanvas(w, h);
+	const ctx = canvas.getContext("2d");
+	const { Image } = require("@napi-rs/canvas");
+	const img = new Image();
+	img.src = Buffer.from(colored);
+	ctx.drawImage(img, 0, 0, w, h);
+	return canvas.toBuffer(toMime(format));
+};
+
 // Draw bounds visualization rectangles
 export const drawBoundsOverlay = (ctx: CanvasContext, bounds: GlyphBounds[]) => {
 	for (const [i, b] of bounds.entries()) {

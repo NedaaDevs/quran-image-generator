@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { generate } from "./generator";
 import { promptOptions } from "./interactive";
+import type { MarkerScaleName } from "./renderer";
 import { FontVersion, ImageFormat, RenderMode } from "./types";
 
 // Compiled binary uses $bunfs virtual filesystem — resolve paths from the executable location
@@ -78,6 +79,7 @@ if (!hasArgs) {
 	const quantizeAlpha = process.argv.includes("quantize");
 	const colorSurahName = process.argv.includes("color-surah");
 	const bench = process.argv.includes("bench");
+	const markerScale: MarkerScaleName = process.argv.includes("marker-3x") ? "3x" : "6x";
 
 	if (startPage < 1 || endPage > 604 || startPage > endPage) {
 		console.error(
@@ -108,6 +110,8 @@ if (!hasArgs) {
 		width,
 		withMarkers,
 		centerPages: process.argv.includes("center"),
+		centerText: process.argv.includes("center-text"),
+		markerScale,
 		showBounds,
 		boundsJson,
 		quantizeAlpha,

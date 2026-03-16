@@ -7,9 +7,13 @@ import { createBoundsDb, type LineMetadata } from "./bounds-db";
 import { createDb, loadSurahMeta } from "./database";
 import { registerPageFont, registerSurahFonts } from "./font-loader";
 import {
+	type MarkerScaleName,
 	measurePage,
+	QuranTheme,
+	type QuranThemeName,
 	renderBasmala,
 	renderBlankLine,
+	renderMarkerCircle,
 	renderSurahFrame,
 	renderSurahHeader,
 	renderSurahName,
@@ -32,12 +36,14 @@ export interface GeneratorOptions {
 	width: number;
 	withMarkers: boolean;
 	centerPages: boolean;
+	centerText: boolean;
 	showBounds: boolean;
 	boundsJson: boolean;
 	quantizeAlpha: boolean;
 	colorSurahName: boolean;
 	pngquantBin?: string;
 	bench: boolean;
+	markerScale: MarkerScaleName;
 	outputDir: string;
 	dataDir: string;
 	onProgress?: (page: number, total: number) => void;
@@ -170,6 +176,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 				headerGlyphs,
 				fmt,
 				opts.centerPages,
+				opts.centerText,
 			);
 			const outDir = path.join(fmtDir, "pages");
 			mkdirSync(outDir, { recursive: true });
@@ -234,6 +241,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 						page,
 						opts.showBounds,
 						fmt,
+						opts.centerText,
 					);
 					perf.render += now() - t;
 					const optimized = await optimize(buffer);
@@ -292,6 +300,16 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 		path.join(markersDir, `surah-frame.${ext}`),
 		await optimize(renderSurahFrame(opts.width, lineHeight, headerGlyphs, fmt)),
 	);
+
+	// Generate themed marker circles (ornamental frame without numeral)
+	const svgPath = path.join(opts.dataDir, opts.version, "marker-circle.svg");
+	if (existsSync(svgPath)) {
+		const svg = await Bun.file(svgPath).text();
+		for (const theme of Object.keys(QuranTheme) as QuranThemeName[]) {
+			const buf = renderMarkerCircle(svg, theme, opts.markerScale, fmt);
+			await Bun.write(path.join(markersDir, `marker-${theme}.${ext}`), await optimize(buf));
+		}
+	}
 
 	db.close();
 

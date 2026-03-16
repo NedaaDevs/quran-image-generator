@@ -75,6 +75,43 @@ output/{version}/{width}/
   bounds.db                    # glyph bounding boxes (SQLite)
 ```
 
+### bounds.db schema
+
+#### `glyph_bounds`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| page | INTEGER | Page number (1–604) |
+| line | INTEGER | Line number (1–15) |
+| position | INTEGER | Word position within the line |
+| surah_number | INTEGER | Surah number (1–114) |
+| ayah_number | INTEGER | Ayah number within the surah |
+| x | INTEGER | Left edge (px) |
+| y | INTEGER | Top edge (px) |
+| width | INTEGER | Glyph width (px) |
+| height | INTEGER | Glyph height (px) |
+| is_marker | INTEGER | 1 = ayah end marker, 0 = word |
+
+#### `line_metadata`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| page | INTEGER | Page number (1–604) |
+| line | INTEGER | Line number (1–15) |
+| type | TEXT | `text`, `surah-header`, or `basmala` |
+| surah_number | INTEGER | Surah number (nullable) |
+| surah_name | TEXT | Arabic surah name (nullable) |
+
+Apps can render marker-less images and overlay ayah markers at runtime by querying:
+
+```sql
+SELECT x, y, width, height, ayah_number
+FROM glyph_bounds
+WHERE page = ? AND is_marker = 1
+```
+
+Then render each marker at the given position using the ayah number.
+
 ## Data
 
 Assets are downloaded automatically via the interactive CLI, or manually from [GitHub releases](https://github.com/NedaaDevs/quran-image-generator/releases):

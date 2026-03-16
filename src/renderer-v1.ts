@@ -33,6 +33,7 @@ const drawLineJustified = (
 	baseline: number,
 	page: number,
 	withMarkers: boolean,
+	centerText = false,
 ): GlyphBounds[] => {
 	ctx.font = `${fontSize}px "${fontFamily}"`;
 	ctx.textAlign = "left";
@@ -67,8 +68,8 @@ const drawLineJustified = (
 	const pad = hPadding(FontVersion.V1);
 	const contentWidth = width - 2 * pad;
 
-	if (isSpecial(ld.type)) {
-		// Special lines (surah headers, basmala) are always centered
+	// TODO: centerText needs verification against printed Mushaf — centering may not match traditional layout
+	if (isSpecial(ld.type) || centerText) {
 		let x = pad + (contentWidth + total) / 2;
 		for (const g of glyphs) {
 			x -= g.w;
@@ -117,12 +118,13 @@ export const renderLineV1 = (
 	page = 0,
 	showBounds = false,
 	format: ImageFormat = ImageFormat.PNG,
+	centerText = false,
 ): RenderLineResult => {
 	const canvas = createCanvas(width, metrics.lineHeight);
 	const ctx = canvas.getContext("2d");
 
 	const baseline = Math.floor((metrics.lineHeight + metrics.ascent - metrics.descent) / 2);
-	const bounds = drawLineJustified(ctx, fontFamily, fontSize, width, ld, baseline, page, withMarkers);
+	const bounds = drawLineJustified(ctx, fontFamily, fontSize, width, ld, baseline, page, withMarkers, centerText);
 
 	if (showBounds) drawBoundsOverlay(ctx, bounds);
 
@@ -139,6 +141,7 @@ export const renderFullPageV1 = (
 	headerGlyphs: Record<string, string> = {},
 	format: ImageFormat = ImageFormat.PNG,
 	centerPages = false,
+	centerText = false,
 ): RenderPageResult => {
 	const pad = hPadding(FontVersion.V1);
 	const { lineData, fontSize, lineHeight, ascent, descent } = measurePage(fontFamily, lines, width, width - 2 * pad);
@@ -172,7 +175,7 @@ export const renderFullPageV1 = (
 
 		if (ld && ld.glyphs.length > 0) {
 			const baseline = y + Math.floor((lineHeight + ascent - descent) / 2);
-			const bounds = drawLineJustified(ctx, fontFamily, fontSize, width, ld, baseline, page, withMarkers);
+			const bounds = drawLineJustified(ctx, fontFamily, fontSize, width, ld, baseline, page, withMarkers, centerText);
 			// drawLineJustified records ld.line — remap to output grid position
 			for (const b of bounds) {
 				b.line = lineNum;

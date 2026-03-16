@@ -33,6 +33,7 @@ const drawLineCentered = (
 	baseline: number,
 	page: number,
 	withMarkers: boolean,
+	centerText = false,
 ): GlyphBounds[] => {
 	ctx.font = `${fontSize}px "${fontFamily}"`;
 	ctx.textAlign = "left";
@@ -51,7 +52,8 @@ const drawLineCentered = (
 	const pad = hPadding(FontVersion.V2);
 	const contentWidth = width - 2 * pad;
 	// RTL: right-align text lines, center non-text (basmala, short surahs)
-	let x = ld.type === LineType.Text ? width - pad : pad + (contentWidth + total) / 2;
+	// TODO: centerText needs verification against printed Mushaf — centering may not match traditional layout
+	let x = ld.type === LineType.Text && !centerText ? width - pad : pad + (contentWidth + total) / 2;
 	for (const g of glyphs) {
 		x -= g.w;
 		if (shouldDraw(g)) ctx.fillText(g.text_qpc, x, baseline);
@@ -83,12 +85,13 @@ export const renderLineV2 = (
 	page = 0,
 	showBounds = false,
 	format: ImageFormat = ImageFormat.PNG,
+	centerText = false,
 ): RenderLineResult => {
 	const canvas = createCanvas(width, metrics.lineHeight);
 	const ctx = canvas.getContext("2d");
 
 	const baseline = Math.floor((metrics.lineHeight + metrics.ascent - metrics.descent) / 2);
-	const bounds = drawLineCentered(ctx, fontFamily, fontSize, width, ld, baseline, page, withMarkers);
+	const bounds = drawLineCentered(ctx, fontFamily, fontSize, width, ld, baseline, page, withMarkers, centerText);
 
 	if (showBounds) drawBoundsOverlay(ctx, bounds);
 
@@ -105,6 +108,7 @@ export const renderFullPageV2 = (
 	headerGlyphs: Record<string, string> = {},
 	format: ImageFormat = ImageFormat.PNG,
 	centerPages = false,
+	centerText = false,
 ): RenderPageResult => {
 	const pad = hPadding(FontVersion.V2);
 	const { lineData, fontSize, lineHeight, ascent, descent } = measurePage(fontFamily, lines, width, width - 2 * pad);
@@ -138,7 +142,7 @@ export const renderFullPageV2 = (
 
 		if (ld && ld.glyphs.length > 0) {
 			const baseline = y + Math.floor((lineHeight + ascent - descent) / 2);
-			const bounds = drawLineCentered(ctx, fontFamily, fontSize, width, ld, baseline, page, withMarkers);
+			const bounds = drawLineCentered(ctx, fontFamily, fontSize, width, ld, baseline, page, withMarkers, centerText);
 			// drawLineCentered records ld.line — remap to output grid position
 			for (const b of bounds) {
 				b.line = lineNum;
