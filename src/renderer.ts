@@ -1,6 +1,6 @@
 import { createCanvas } from "./canvas-factory";
 import { BASMALA_FONT, SURAH_HEADER_FONT, SURAH_NAME_FONT } from "./font-loader";
-import { type GlyphBounds, ImageFormat, type LineInput, LineType, type MeasuredLine } from "./types";
+import { type FontVersion, type GlyphBounds, ImageFormat, type LineInput, LineType, type MeasuredLine } from "./types";
 
 // Canvas toBuffer accepts these mime types — cast needed because @napi-rs/canvas types are overly strict
 export const toMime = (fmt: ImageFormat) => (fmt === ImageFormat.WebP ? "image/webp" : "image/png") as "image/webp";
@@ -18,6 +18,7 @@ export interface PageMetrics {
 	lineData: MeasuredLine[];
 	fontSize: number;
 	lineHeight: number;
+	lineImageHeight: number;
 	ascent: number;
 	descent: number;
 }
@@ -37,6 +38,7 @@ export const measurePage = (
 	fontFamily: string,
 	lines: LineInput[],
 	width: number,
+	version: FontVersion,
 	contentWidth?: number,
 ): PageMetrics => {
 	// Measure at REF_SIZE first, then scale — gives us the ratio to fit widest line to canvas width
@@ -59,18 +61,29 @@ export const measurePage = (
 	// Page-wide ascent/descent ensures consistent baseline across all lines
 	let pageAscent = 0;
 	let pageDescent = 0;
+	// Per-page max line ink height — tightest consistent spacing for this page
+	let maxLineInk = 0;
 	for (const ld of lineData) {
+		let lineAscent = 0;
+		let lineDescent = 0;
 		for (const g of ld.glyphs) {
 			const m = mx.measureText(g.text_qpc);
-			pageAscent = Math.max(pageAscent, m.actualBoundingBoxAscent);
-			pageDescent = Math.max(pageDescent, m.actualBoundingBoxDescent);
+			lineAscent = Math.max(lineAscent, m.actualBoundingBoxAscent);
+			lineDescent = Math.max(lineDescent, m.actualBoundingBoxDescent);
+			pageAscent = Math.max(pageAscent, lineAscent);
+			pageDescent = Math.max(pageDescent, lineDescent);
+		}
+		if (ld.glyphs.length > 0) {
+			maxLineInk = Math.max(maxLineInk, lineAscent + lineDescent);
 		}
 	}
 
-	// Standard Mushaf line height ratio — 232/1440 maintains correct vertical proportion
-	const lineHeight = Math.round((width * 232) / 1440);
+	// Page mode: per-page max line ink — tight, even spacing within each page
+	const lineHeight = Math.round(maxLineInk);
+	// Line mode: wraps the tallest glyph on the page — app controls stacking
+	const lineImageHeight = Math.round(pageAscent + pageDescent);
 
-	return { lineData, fontSize, lineHeight, ascent: pageAscent, descent: pageDescent };
+	return { lineData, fontSize, lineHeight, lineImageHeight, ascent: pageAscent, descent: pageDescent };
 };
 
 export const isSpecial = (type: LineType) => type === LineType.SurahHeader || type === LineType.Basmala;
@@ -247,7 +260,7 @@ export const drawDecorativeLine = (
 				ctx.fillText(glyph.trim(), width / 2, y + lineHeight / 2);
 			}
 		} else {
-			const nameFontSize = Math.floor(lineHeight * 0.45);
+			const nameFontSize = Math.floor(lineHeight * 0.55);
 			ctx.font = `${nameFontSize}px "${SURAH_NAME_FONT}"`;
 			ctx.fillStyle = "#000000";
 			ctx.textBaseline = "middle";
@@ -273,10 +286,11 @@ export const MarkerScale = {
 
 export type MarkerScaleName = keyof typeof MarkerScale;
 
+// Colors extracted from Ayah iOS app Assets.car (verse markers + chapter headers)
 export const QuranTheme = {
-	light: { marker: "#B8860B", bg: "#FFFDF7" },
-	sepia: { marker: "#8B6914", bg: "#F8F1E3" },
-	dark: { marker: "#C4A265", bg: "#121212" },
+	light: { marker: "#000000", bg: "#DBEBD3" },
+	sepia: { marker: "#885820", bg: "#F0E4D6" },
+	dark: { marker: "#707480", bg: "#181818" },
 } as const;
 
 export type QuranThemeName = keyof typeof QuranTheme;

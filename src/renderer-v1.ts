@@ -144,7 +144,13 @@ export const renderFullPageV1 = (
 	centerText = false,
 ): RenderPageResult => {
 	const pad = hPadding(FontVersion.V1);
-	const { lineData, fontSize, lineHeight, ascent, descent } = measurePage(fontFamily, lines, width, width - 2 * pad);
+	const { lineData, fontSize, lineHeight, ascent, descent } = measurePage(
+		fontFamily,
+		lines,
+		width,
+		FontVersion.V1,
+		width - 2 * pad,
+	);
 	const height = LINES_PER_PAGE * lineHeight;
 
 	const canvas = createCanvas(width, height);
