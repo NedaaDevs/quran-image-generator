@@ -11,12 +11,16 @@ export const SURAH_HEADER_FONT = "SurahHeader";
 export const BASMALA_FONT = "Basmala";
 
 const registeredFonts = new Set<string>();
+// Cairo breaks when the same .ttf is registered under multiple family names
+const registeredPaths = new Map<string, string>();
 
 const register = (fontPath: string, family: string) => {
 	if (registeredFonts.has(family)) return;
-	if (!existsSync(fontPath)) throw new Error(`Font not found: ${fontPath}`);
-	registerFont(fontPath, family);
+	const resolved = path.resolve(fontPath);
+	if (!existsSync(resolved)) throw new Error(`Font not found: ${resolved}`);
+	registerFont(resolved, family);
 	registeredFonts.add(family);
+	registeredPaths.set(resolved, family);
 };
 
 export const registerSurahFonts = (dataDir: string, version: FontVersion, colorSurahName = false) => {
@@ -30,12 +34,17 @@ export const registerSurahFonts = (dataDir: string, version: FontVersion, colorS
 
 export const registerPageFont = (fontsDir: string, page: number, version: FontVersion) => {
 	const fontFamily = `${version}_p${page}`;
-	const fontPath = path.join(fontsDir, `p${page}.ttf`);
+	const resolved = path.resolve(fontsDir, `p${page}.ttf`);
 
-	if (!existsSync(fontPath)) {
-		throw new Error(`Font not found: ${fontPath}`);
+	// Reuse existing family if this file was already registered (e.g. p1.ttf as Basmala)
+	const existing = registeredPaths.get(resolved);
+	if (existing) return existing;
+
+	if (!existsSync(resolved)) {
+		throw new Error(`Font not found: ${resolved}`);
 	}
 
-	registerFont(fontPath, fontFamily);
+	registerFont(resolved, fontFamily);
+	registeredPaths.set(resolved, fontFamily);
 	return fontFamily;
 };
