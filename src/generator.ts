@@ -191,13 +191,12 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 		} else {
 			const hPad = hPadding(opts.version);
 			const contentWidth = hPad > 0 ? opts.width - 2 * hPad : undefined;
-			const {
-				lineData,
-				fontSize,
-				lineImageHeight: lineHeight,
-				ascent,
-				descent,
-			} = measurePage(fontFamily, lineInputs, opts.width, opts.version, contentWidth);
+			const { lineData, fontSize, lineHeight, ascent, descent } = measurePage(
+				fontFamily,
+				lineInputs,
+				opts.width,
+				contentWidth,
+			);
 			const outDir = path.join(fmtDir, "lines", pad(page, 3));
 			mkdirSync(outDir, { recursive: true });
 
