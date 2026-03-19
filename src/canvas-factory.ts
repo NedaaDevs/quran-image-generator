@@ -37,3 +37,11 @@ export const registerFont = (fontPath: string, family: string) => {
 		getSkia().GlobalFonts.registerFromPath(fontPath, family);
 	}
 };
+
+// Cairo-specific functions for decorative rendering (surah names, headers, basmala).
+// These fonts rely on GSUB ligatures or COLR/CPAL tables that Skia doesn't fully support.
+export const createCairoCanvas = (width: number, height: number) => getCairo().createCanvas(width, height);
+
+export const registerCairoFont = (fontPath: string, family: string) => {
+	getCairo().registerFont(fontPath, { family });
+};
