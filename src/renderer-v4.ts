@@ -2,13 +2,13 @@ import { createCanvas } from "./canvas-factory";
 import {
 	type CanvasContext,
 	drawBoundsOverlay,
-	drawDecorativeLine,
 	isSpecial,
 	measurePage,
 	mx,
 	type PageMetrics,
 	type RenderLineResult,
 	type RenderPageResult,
+	renderDecorativePixels,
 	toMime,
 } from "./renderer";
 import {
@@ -183,7 +183,13 @@ export const renderFullPageV4 = (
 				allBounds.push(b);
 			}
 		} else if (lineInfo) {
-			drawDecorativeLine(ctx, lineInfo, fontSize, width, lineHeight, y, withMarkers, headerGlyphs);
+			// Decorative fonts are Cairo-only — render pixels with Cairo, paste onto Skia canvas
+			const pixels = renderDecorativePixels(lineInfo, fontSize, width, lineHeight, withMarkers, headerGlyphs);
+			if (pixels) {
+				const imgData = ctx.createImageData(width, lineHeight);
+				imgData.data.set(pixels);
+				ctx.putImageData(imgData, 0, y);
+			}
 		}
 
 		ctx.restore();

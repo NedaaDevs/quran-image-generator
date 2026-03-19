@@ -18,6 +18,7 @@ import {
 	renderSurahFrame,
 	renderSurahHeader,
 	renderSurahName,
+	resetMeasureCtx,
 	setBasmalaText,
 	setSurahNameGlyphs,
 } from "./renderer";
@@ -57,7 +58,14 @@ export interface GeneratorResult {
 }
 
 export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult> => {
+	// Cairo doesn't support COLR/CPAL color font tables — V4 tajweed colors require Skia
+	if (opts.version === FontVersion.V4 && opts.engine === "cairo") {
+		console.warn("V4 fonts use COLR/CPAL color tables unsupported by Cairo — switching to Skia");
+		opts.engine = "skia" as RenderEngine;
+	}
 	setEngine(opts.engine);
+	// Measurement context must match the active engine's font registry
+	resetMeasureCtx();
 	const dbPath = path.join(opts.dataDir, opts.version, "quran-layout.db");
 	const fontsDir = path.join(opts.dataDir, opts.version, "fonts");
 	const db = createDb(dbPath);
