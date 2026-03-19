@@ -312,6 +312,17 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 		await optimize(renderSurahFrame(opts.width, lineHeight, headerGlyphs, fmt)),
 	);
 
+	// Copy ornamental SVG frames for app overlay (one per style variant)
+	const frameStyles = ["classic", "cartouche", "geometric"];
+	const framesDir = path.join(import.meta.dir, "assets", "surah-frames");
+	for (const style of frameStyles) {
+		const svgName = `${style}-${opts.version}.svg`;
+		const srcPath = path.join(framesDir, svgName);
+		if (existsSync(srcPath)) {
+			await Bun.write(path.join(markersDir, `surah-frame-${style}.svg`), Bun.file(srcPath));
+		}
+	}
+
 	// Generate themed marker circles (ornamental frame without numeral)
 	const svgPath = path.join(opts.dataDir, opts.version, "marker-circle.svg");
 	if (existsSync(svgPath)) {
