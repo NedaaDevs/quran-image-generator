@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { getEngine, registerCairoFont, registerFont } from "./canvas-factory";
+import { sanitizeFontFile } from "./font-sanitizer";
 import type { FontVersion } from "./types";
 
 // Surah name fonts use ligatures: "surah001" → calligraphic glyph
@@ -21,7 +22,7 @@ const registerDecorative = (fontPath: string, family: string) => {
 	if (!existsSync(resolved)) throw new Error(`Font not found: ${resolved}`);
 	const existing = cairoPaths.get(resolved);
 	if (existing) return;
-	registerCairoFont(resolved, family);
+	registerCairoFont(sanitizeFontFile(resolved), family);
 	cairoFamilies.add(family);
 	cairoPaths.set(resolved, family);
 };
@@ -46,12 +47,12 @@ export const registerPageFont = (fontsDir: string, page: number, version: FontVe
 		// Reuse existing Cairo family if this file was already registered (e.g. p1.ttf as Basmala)
 		const existing = cairoPaths.get(resolved);
 		if (existing) return existing;
-		registerFont(resolved, fontFamily);
+		registerFont(sanitizeFontFile(resolved), fontFamily);
 		cairoPaths.set(resolved, fontFamily);
 	} else {
 		if (pageFamilies.has(fontFamily)) return fontFamily;
 		if (!existsSync(resolved)) throw new Error(`Font not found: ${resolved}`);
-		registerFont(resolved, fontFamily);
+		registerFont(sanitizeFontFile(resolved), fontFamily);
 		pageFamilies.add(fontFamily);
 	}
 
