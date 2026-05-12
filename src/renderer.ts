@@ -359,6 +359,94 @@ export const renderMarkerCircle = (
 	return canvas.toBuffer(toMime(format));
 };
 
+// Renders glyphs RTL with inter-word gap justification.
+// Word+marker pairs are grouped so markers stay attached. Special lines
+// (basmala, surah header) and centerText force centered layout instead.
+// Shared by V1 (Cairo) and V4 (Skia) — fillStyle is ignored on V4 COLR/CPAL glyphs.
+export const drawLineJustified = (
+	ctx: CanvasContext,
+	fontFamily: string,
+	fontSize: number,
+	width: number,
+	pad: number,
+	ld: MeasuredLine,
+	baseline: number,
+	page: number,
+	withMarkers: boolean,
+	centerText = false,
+): GlyphBounds[] => {
+	ctx.font = `${fontSize}px "${fontFamily}"`;
+	ctx.textAlign = "left";
+	ctx.fillStyle = "#000000";
+	ctx.textBaseline = "alphabetic";
+	mx.font = `${fontSize}px "${fontFamily}"`;
+
+	const glyphs = ld.glyphs.map((g) => ({
+		...g,
+		w: mx.measureText(g.text_qpc).width,
+	}));
+	const total = glyphs.reduce((s, g) => s + g.w, 0);
+	const shouldDraw = (g: { isMarker?: boolean }) => !g.isMarker || withMarkers;
+
+	const recordBound = (g: (typeof glyphs)[0], x: number): GlyphBounds => {
+		const gm = mx.measureText(g.text_qpc);
+		return {
+			page,
+			line: ld.line,
+			position: g.position,
+			surahNumber: g.surahNumber,
+			ayahNumber: g.ayahNumber,
+			x: Math.round(x),
+			y: Math.round(baseline - gm.actualBoundingBoxAscent),
+			width: Math.round(g.w),
+			height: Math.round(gm.actualBoundingBoxAscent + gm.actualBoundingBoxDescent),
+			isMarker: g.isMarker ?? false,
+		};
+	};
+
+	const bounds: GlyphBounds[] = [];
+	const contentWidth = width - 2 * pad;
+
+	// TODO: centerText needs verification against printed Mushaf — centering may not match traditional layout
+	if (isSpecial(ld.type) || centerText) {
+		let x = pad + (contentWidth + total) / 2;
+		for (const g of glyphs) {
+			x -= g.w;
+			if (shouldDraw(g)) ctx.fillText(g.text_qpc, x, baseline);
+			bounds.push(recordBound(g, x));
+		}
+	} else {
+		// Group each word with its following marker so they justify as a unit
+		const groups: { glyphs: typeof glyphs; w: number }[] = [];
+		for (let i = 0; i < glyphs.length; i++) {
+			const cur = glyphs[i];
+			if (!cur) continue;
+			const next = glyphs[i + 1];
+			if (next?.isMarker) {
+				groups.push({ glyphs: [cur, next], w: cur.w + next.w });
+				i++;
+			} else {
+				groups.push({ glyphs: [cur], w: cur.w });
+			}
+		}
+
+		// Only justify if line fills >70% — avoids ugly gaps on short lines
+		const fillRatio = total / contentWidth;
+		const gap = fillRatio > 0.7 && groups.length > 1 ? (contentWidth - total) / (groups.length - 1) : 0;
+		let x = width - pad;
+		for (const group of groups) {
+			for (const g of group.glyphs) {
+				x -= g.w;
+				if (shouldDraw(g)) ctx.fillText(g.text_qpc, x, baseline);
+				bounds.push(recordBound(g, x));
+			}
+			x -= gap;
+		}
+	}
+
+	return bounds;
+};
+
 // Draw bounds visualization rectangles
 export const drawBoundsOverlay = (ctx: CanvasContext, bounds: GlyphBounds[]) => {
 	for (const [i, b] of bounds.entries()) {

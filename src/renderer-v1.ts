@@ -1,11 +1,9 @@
 import { createCanvas } from "./canvas-factory";
 import {
-	type CanvasContext,
 	drawBoundsOverlay,
 	drawDecorativeLine,
-	isSpecial,
+	drawLineJustified,
 	measurePage,
-	mx,
 	type PageMetrics,
 	type RenderLineResult,
 	type RenderPageResult,
@@ -21,92 +19,6 @@ import {
 	LineType,
 	type MeasuredLine,
 } from "./types";
-
-// Renders glyphs individually with inter-word gap distribution for justified layout.
-// Groups word+marker pairs to prevent markers from floating away from their word.
-const drawLineJustified = (
-	ctx: CanvasContext,
-	fontFamily: string,
-	fontSize: number,
-	width: number,
-	ld: MeasuredLine,
-	baseline: number,
-	page: number,
-	withMarkers: boolean,
-	centerText = false,
-): GlyphBounds[] => {
-	ctx.font = `${fontSize}px "${fontFamily}"`;
-	ctx.textAlign = "left";
-	ctx.fillStyle = "#000000";
-	ctx.textBaseline = "alphabetic";
-	mx.font = `${fontSize}px "${fontFamily}"`;
-
-	const glyphs = ld.glyphs.map((g) => ({
-		...g,
-		w: mx.measureText(g.text_qpc).width,
-	}));
-	const total = glyphs.reduce((s, g) => s + g.w, 0);
-	const shouldDraw = (g: { isMarker?: boolean }) => !g.isMarker || withMarkers;
-
-	const recordBound = (g: (typeof glyphs)[0], x: number) => {
-		const gm = mx.measureText(g.text_qpc);
-		return {
-			page,
-			line: ld.line,
-			position: g.position,
-			surahNumber: g.surahNumber,
-			ayahNumber: g.ayahNumber,
-			x: Math.round(x),
-			y: Math.round(baseline - gm.actualBoundingBoxAscent),
-			width: Math.round(g.w),
-			height: Math.round(gm.actualBoundingBoxAscent + gm.actualBoundingBoxDescent),
-			isMarker: g.isMarker ?? false,
-		};
-	};
-
-	const bounds: GlyphBounds[] = [];
-	const pad = hPadding(FontVersion.V1);
-	const contentWidth = width - 2 * pad;
-
-	// TODO: centerText needs verification against printed Mushaf — centering may not match traditional layout
-	if (isSpecial(ld.type) || centerText) {
-		let x = pad + (contentWidth + total) / 2;
-		for (const g of glyphs) {
-			x -= g.w;
-			if (shouldDraw(g)) ctx.fillText(g.text_qpc, x, baseline);
-			bounds.push(recordBound(g, x));
-		}
-	} else {
-		// Justify: group each word with its following marker, then distribute gaps evenly
-		const groups: { glyphs: typeof glyphs; w: number }[] = [];
-		for (let i = 0; i < glyphs.length; i++) {
-			const cur = glyphs[i];
-			if (!cur) continue;
-			const next = glyphs[i + 1];
-			if (next?.isMarker) {
-				groups.push({ glyphs: [cur, next], w: cur.w + next.w });
-				i++;
-			} else {
-				groups.push({ glyphs: [cur], w: cur.w });
-			}
-		}
-
-		// Only justify if text fills >70% of content area — avoids ugly gaps on short lines
-		const fillRatio = total / contentWidth;
-		const gap = fillRatio > 0.7 && groups.length > 1 ? (contentWidth - total) / (groups.length - 1) : 0;
-		let x = width - pad;
-		for (const group of groups) {
-			for (const g of group.glyphs) {
-				x -= g.w;
-				if (shouldDraw(g)) ctx.fillText(g.text_qpc, x, baseline);
-				bounds.push(recordBound(g, x));
-			}
-			x -= gap;
-		}
-	}
-
-	return bounds;
-};
 
 export const renderLineV1 = (
 	fontFamily: string,
@@ -124,7 +36,18 @@ export const renderLineV1 = (
 	const ctx = canvas.getContext("2d");
 
 	const baseline = Math.floor((metrics.lineHeight + metrics.ascent - metrics.descent) / 2);
-	const bounds = drawLineJustified(ctx, fontFamily, fontSize, width, ld, baseline, page, withMarkers, centerText);
+	const bounds = drawLineJustified(
+		ctx,
+		fontFamily,
+		fontSize,
+		width,
+		hPadding(FontVersion.V1),
+		ld,
+		baseline,
+		page,
+		withMarkers,
+		centerText,
+	);
 
 	if (showBounds) drawBoundsOverlay(ctx, bounds);
 
@@ -175,7 +98,18 @@ export const renderFullPageV1 = (
 
 		if (ld && ld.glyphs.length > 0) {
 			const baseline = y + Math.floor((lineHeight + ascent - descent) / 2);
-			const bounds = drawLineJustified(ctx, fontFamily, fontSize, width, ld, baseline, page, withMarkers, centerText);
+			const bounds = drawLineJustified(
+				ctx,
+				fontFamily,
+				fontSize,
+				width,
+				hPadding(FontVersion.V1),
+				ld,
+				baseline,
+				page,
+				withMarkers,
+				centerText,
+			);
 			// drawLineJustified records ld.line — remap to output grid position
 			for (const b of bounds) {
 				b.line = lineNum;
