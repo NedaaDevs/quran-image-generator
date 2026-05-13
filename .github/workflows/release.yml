@@ -53,10 +53,9 @@ jobs:
             target: bun-darwin-arm64
             artifact: quran-gen-darwin-arm64
             versions: v1 v2 v4
-          - runner: macos-13
-            target: bun-darwin-x64
-            artifact: quran-gen-darwin-x64
-            versions: v1 v2 v4
+          # darwin-x64 (Intel macOS) intentionally omitted: GitHub-hosted macos-13
+          # runners queue too long to be useful. Apple Silicon binary covers
+          # virtually all users; revisit if x64 demand surfaces.
 
     runs-on: ${{ matrix.runner }}
 
