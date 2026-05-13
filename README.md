@@ -48,10 +48,37 @@ docker compose build
 docker compose run generator 1 604 1440 line v2
 ```
 
-### Compiled binary
+### Prebuilt binary (recommended)
+
+Each release ships self-contained binaries with assets embedded — no `bun install`, no font/layout download, no Cairo or `unzip` required. Only `tar` (in every Linux/macOS base) is used to unpack assets on first run.
+
+Pick the variant for your platform from the [latest release](https://github.com/NedaaDevs/quran-image-generator/releases/latest):
+
+| Variant | Targets | Use when |
+|---------|---------|----------|
+| `quran-gen-{platform}` | v1 + v2 + v4 | You want every font version in one binary |
+| `quran-gen-v1-{platform}` | v1 only | Smaller download, single version |
+| `quran-gen-v2-{platform}` | v2 only | Smaller download, single version |
+| `quran-gen-v4-{platform}` | v4 only | Smaller download, single version |
+
+Supported platforms: `darwin-arm64` (Apple Silicon), `linux-x64`, `linux-arm64`.
 
 ```bash
-bun build src/cli.ts --compile --outfile quran-gen
+# Apple Silicon (all versions)
+curl -L https://github.com/NedaaDevs/quran-image-generator/releases/latest/download/quran-gen-darwin-arm64.tar.gz | tar xz
+./quran-gen-darwin-arm64 1 604 1440 line v2
+
+# Linux x64 (v2 only)
+curl -L https://github.com/NedaaDevs/quran-image-generator/releases/latest/download/quran-gen-v2-linux-x64.tar.gz | tar xz
+./quran-gen-v2-linux-x64 1 604 1440 line v2
+```
+
+The tarball contains the binary plus a `pngquant` sidecar; keep them next to each other.
+
+### Build from source
+
+```bash
+bun build src/cli.ts --compile --external canvas --outfile quran-gen
 ./quran-gen 1 604 1440 line v2
 ```
 
