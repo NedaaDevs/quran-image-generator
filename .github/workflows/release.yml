@@ -79,11 +79,11 @@ jobs:
             (cd data && unzip -o -q "${v}.zip" && rm "${v}.zip")
           done
 
-      - name: Package assets zip
+      - name: Package assets tarball
         run: |
           dirs="common"
           for v in ${{ matrix.versions }}; do dirs="$dirs $v"; done
-          (cd data && zip -r -q ../assets.zip $dirs)
+          (cd data && tar -cf ../assets.tar $dirs)
 
       - name: Install pngquant from apt (linux-arm64)
         # pngquant-bin has no arm64 prebuilt and can't compile on the runner.
@@ -98,7 +98,7 @@ jobs:
           # `--external canvas` keeps the Cairo native binding (and its 15
           # sibling dylibs) out of the bundle. Skia (@napi-rs/canvas) ships a
           # single self-contained .node and is the only required engine.
-          bun build src/cli.ts assets.zip --compile --external canvas --target="$TARGET" --outfile "$ARTIFACT"
+          bun build src/cli.ts assets.tar --compile --external canvas --target="$TARGET" --outfile "$ARTIFACT"
           if [ -x node_modules/pngquant-bin/vendor/pngquant ]; then
             cp node_modules/pngquant-bin/vendor/pngquant pngquant
           else

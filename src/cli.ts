@@ -28,21 +28,23 @@ const resolvePngquant = (): string => {
 };
 const pngquantBin = resolvePngquant();
 
-// Embedded at compile time — resolves to $bunfs path in binary, real path in dev
-let assetsZip: string | undefined;
+// Embedded at compile time — resolves to $bunfs path in binary, real path in dev.
+// tar (not zip) so we don't pull in `unzip` as a runtime requirement —
+// `tar` ships in coreutils-style base images while `unzip` often doesn't.
+let assetsTar: string | undefined;
 try {
-	assetsZip = require("../assets.zip");
+	assetsTar = require("../assets.tar");
 } catch {}
 
 // Extract embedded assets on first run (compiled binary only)
-if (isCompiled && assetsZip && !existsSync(path.join(ROOT, "data", "common"))) {
+if (isCompiled && assetsTar && !existsSync(path.join(ROOT, "data", "common"))) {
 	const dataDir = path.join(ROOT, "data");
 	console.log("Extracting embedded assets...");
 	mkdirSync(dataDir, { recursive: true });
-	// Copy from $bunfs to temp file — unzip can't read virtual filesystem directly
-	const tmpZip = path.join(dataDir, "_assets.zip");
-	await Bun.write(tmpZip, Bun.file(assetsZip));
-	const proc = Bun.spawn(["unzip", "-o", "-q", tmpZip, "-d", dataDir], {
+	// Copy from $bunfs to a real path — tar can't read the virtual filesystem directly
+	const tmpTar = path.join(dataDir, "_assets.tar");
+	await Bun.write(tmpTar, Bun.file(assetsTar));
+	const proc = Bun.spawn(["tar", "-xf", tmpTar, "-C", dataDir], {
 		stdout: "ignore",
 		stderr: "pipe",
 	});
@@ -50,7 +52,7 @@ if (isCompiled && assetsZip && !existsSync(path.join(ROOT, "data", "common"))) {
 		console.error("Failed to extract assets");
 		process.exit(1);
 	}
-	unlinkSync(tmpZip);
+	unlinkSync(tmpTar);
 	console.log("Done.\n");
 }
 
