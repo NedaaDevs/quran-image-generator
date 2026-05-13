@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { getEngine, registerCairoFont, registerFont } from "./canvas-factory";
+import { cairoAvailable, getEngine, registerDecorativeFont, registerFont } from "./canvas-factory";
 import { sanitizeFontFile } from "./font-sanitizer";
 import type { FontVersion } from "./types";
 
@@ -22,7 +22,7 @@ const registerDecorative = (fontPath: string, family: string) => {
 	if (!existsSync(resolved)) throw new Error(`Font not found: ${resolved}`);
 	const existing = cairoPaths.get(resolved);
 	if (existing) return;
-	registerCairoFont(sanitizeFontFile(resolved), family);
+	registerDecorativeFont(sanitizeFontFile(resolved), family);
 	cairoFamilies.add(family);
 	cairoPaths.set(resolved, family);
 };
@@ -43,7 +43,7 @@ export const registerPageFont = (fontsDir: string, page: number, version: FontVe
 	const fontFamily = `${version}_p${page}`;
 	const resolved = path.resolve(fontsDir, `p${page}.ttf`);
 
-	if (getEngine() === "cairo") {
+	if (getEngine() === "cairo" && cairoAvailable()) {
 		// Reuse existing Cairo family if this file was already registered (e.g. p1.ttf as Basmala)
 		const existing = cairoPaths.get(resolved);
 		if (existing) return existing;

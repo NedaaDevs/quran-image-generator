@@ -1,4 +1,4 @@
-import { createCairoCanvas, createCanvas } from "./canvas-factory";
+import { createCanvas, createDecorativeCanvas } from "./canvas-factory";
 import { BASMALA_FONT, SURAH_HEADER_FONT, SURAH_NAME_FONT } from "./font-loader";
 import { type GlyphBounds, ImageFormat, type LineInput, LineType, type MeasuredLine } from "./types";
 
@@ -15,9 +15,13 @@ export const resetMeasureCtx = () => {
 	mx = createCanvas(1, 1).getContext("2d");
 };
 
-// Cairo context for decorative text measurement (surah names, headers, basmala).
-// Always Cairo because these fonts use GSUB ligatures or COLR/CPAL tables.
-const cmx = createCairoCanvas(1, 1).getContext("2d");
+// Lazy decorative measurement context — created on first use to avoid forcing
+// Cairo (or any canvas backend) load at module import time.
+let _cmx: ReturnType<ReturnType<typeof createDecorativeCanvas>["getContext"]> | undefined;
+const cmx = () => {
+	_cmx ??= createDecorativeCanvas(1, 1).getContext("2d");
+	return _cmx;
+};
 
 // Both engines return compatible 2D contexts — use a minimal structural type
 export type CanvasContext = ReturnType<ReturnType<typeof createCanvas>["getContext"]>;
@@ -102,8 +106,8 @@ const surahNameText = (surahNumber: number, fontSize: number): string => {
 	if (directGlyph) return directGlyph;
 
 	const name = `surah${String(surahNumber).padStart(3, "0")}`;
-	cmx.font = `${fontSize}px "${SURAH_NAME_FONT}"`;
-	const iconW = cmx.measureText("surah-icon").width;
+	cmx().font = `${fontSize}px "${SURAH_NAME_FONT}"`;
+	const iconW = cmx().measureText("surah-icon").width;
 	// Ligature glyph is compact (~1.3x fontSize); missing glyph renders individual chars (~5x)
 	// Name before icon — ligatures produce Arabic glyphs which render RTL naturally
 	return iconW > 0 && iconW < fontSize * 2 ? `${name} surah-icon` : name;
@@ -119,14 +123,14 @@ export const renderSurahHeader = (
 	headerGlyphs: Record<string, string>,
 	format: ImageFormat = ImageFormat.PNG,
 ): Buffer => {
-	const canvas = createCairoCanvas(width, lineHeight);
+	const canvas = createDecorativeCanvas(width, lineHeight);
 	const ctx = canvas.getContext("2d");
 
 	const glyph = headerGlyphs[`surah-${surahNumber}`];
 	if (glyph) {
 		// Frame font renders ornamental border + surah name as one glyph
-		cmx.font = `100px "${SURAH_HEADER_FONT}"`;
-		const refW = cmx.measureText(glyph.trim()).width;
+		cmx().font = `100px "${SURAH_HEADER_FONT}"`;
+		const refW = cmx().measureText(glyph.trim()).width;
 		const fontSize = Math.floor((100 * width) / refW);
 		ctx.font = `${fontSize}px "${SURAH_HEADER_FONT}"`;
 		ctx.fillStyle = "#000000";
@@ -145,7 +149,7 @@ export const renderSurahName = (
 	surahNumber: number,
 	format: ImageFormat = ImageFormat.PNG,
 ): Buffer => {
-	const canvas = createCairoCanvas(width, lineHeight);
+	const canvas = createDecorativeCanvas(width, lineHeight);
 	const ctx = canvas.getContext("2d");
 	const fontSize = Math.floor(lineHeight * 0.65);
 	ctx.font = `${fontSize}px "${SURAH_NAME_FONT}"`;
@@ -166,10 +170,10 @@ export const renderSurahFrame = (
 ): Buffer => {
 	const render = (key: string) => {
 		const glyph = (headerGlyphs[key] ?? "").trim();
-		cmx.font = `100px "${SURAH_HEADER_FONT}"`;
-		const refW = cmx.measureText(glyph).width;
+		cmx().font = `100px "${SURAH_HEADER_FONT}"`;
+		const refW = cmx().measureText(glyph).width;
 		const fontSize = Math.floor((100 * width) / refW);
-		const c = createCairoCanvas(width, lineHeight);
+		const c = createDecorativeCanvas(width, lineHeight);
 		const ctx = c.getContext("2d");
 		ctx.font = `${fontSize}px "${SURAH_HEADER_FONT}"`;
 		ctx.fillStyle = "#000000";
@@ -184,7 +188,7 @@ export const renderSurahFrame = (
 	const d2 = render("surah-10");
 	const d3 = render("surah-19");
 
-	const c = createCairoCanvas(width, lineHeight);
+	const c = createDecorativeCanvas(width, lineHeight);
 	const ctx = c.getContext("2d");
 	const imgData = ctx.createImageData(width, lineHeight);
 	for (let i = 0; i < d1.length; i += 4) {
@@ -215,7 +219,7 @@ export const renderBasmala = (
 	fontSize: number,
 	format: ImageFormat = ImageFormat.PNG,
 ): Buffer => {
-	const canvas = createCairoCanvas(width, lineHeight);
+	const canvas = createDecorativeCanvas(width, lineHeight);
 	const ctx = canvas.getContext("2d");
 	ctx.font = `${fontSize}px "${BASMALA_FONT}"`;
 	ctx.fillStyle = "#000000";
@@ -240,15 +244,15 @@ export const renderDecorativePixels = (
 	withMarkers: boolean,
 	headerGlyphs: Record<string, string>,
 ): Uint8ClampedArray | null => {
-	const canvas = createCairoCanvas(width, lineHeight);
+	const canvas = createDecorativeCanvas(width, lineHeight);
 	const ctx = canvas.getContext("2d");
 
 	if (lineInfo.type === LineType.SurahHeader && lineInfo.surah_number) {
 		if (withMarkers) {
 			const glyph = headerGlyphs[`surah-${lineInfo.surah_number}`];
 			if (glyph) {
-				cmx.font = `100px "${SURAH_HEADER_FONT}"`;
-				const refW = cmx.measureText(glyph.trim()).width;
+				cmx().font = `100px "${SURAH_HEADER_FONT}"`;
+				const refW = cmx().measureText(glyph.trim()).width;
 				const hdrSize = Math.floor((100 * width) / refW);
 				ctx.font = `${hdrSize}px "${SURAH_HEADER_FONT}"`;
 				ctx.fillStyle = "#000000";
@@ -295,8 +299,8 @@ export const drawDecorativeLine = (
 		if (withMarkers) {
 			const glyph = headerGlyphs[`surah-${lineInfo.surah_number}`];
 			if (glyph) {
-				cmx.font = `100px "${SURAH_HEADER_FONT}"`;
-				const refW = cmx.measureText(glyph.trim()).width;
+				cmx().font = `100px "${SURAH_HEADER_FONT}"`;
+				const refW = cmx().measureText(glyph.trim()).width;
 				const hdrSize = Math.floor((100 * width) / refW);
 				ctx.font = `${hdrSize}px "${SURAH_HEADER_FONT}"`;
 				ctx.fillStyle = "#000000";
