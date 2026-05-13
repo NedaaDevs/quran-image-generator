@@ -14,39 +14,50 @@ jobs:
       matrix:
         include:
           # Per-version binaries (smaller, single version bundled)
-          - target: bun-linux-x64
+          - runner: ubuntu-latest
+            target: bun-linux-x64
             artifact: quran-gen-v1-linux-x64
             versions: v1
-          - target: bun-linux-x64
+          - runner: ubuntu-latest
+            target: bun-linux-x64
             artifact: quran-gen-v2-linux-x64
             versions: v2
-          - target: bun-linux-x64
+          - runner: ubuntu-latest
+            target: bun-linux-x64
             artifact: quran-gen-v4-linux-x64
             versions: v4
-          - target: bun-darwin-arm64
+          - runner: macos-latest
+            target: bun-darwin-arm64
             artifact: quran-gen-v1-darwin-arm64
             versions: v1
-          - target: bun-darwin-arm64
+          - runner: macos-latest
+            target: bun-darwin-arm64
             artifact: quran-gen-v2-darwin-arm64
             versions: v2
-          - target: bun-darwin-arm64
+          - runner: macos-latest
+            target: bun-darwin-arm64
             artifact: quran-gen-v4-darwin-arm64
             versions: v4
-          # All-in-one binaries
-          - target: bun-linux-x64
+          # All-in-one binaries — one matrix entry per native runner to avoid
+          # cross-arch pngquant/Skia .node mismatches.
+          - runner: ubuntu-latest
+            target: bun-linux-x64
             artifact: quran-gen-linux-x64
             versions: v1 v2 v4
-          - target: bun-linux-arm64
+          - runner: ubuntu-24.04-arm
+            target: bun-linux-arm64
             artifact: quran-gen-linux-arm64
             versions: v1 v2 v4
-          - target: bun-darwin-arm64
+          - runner: macos-latest
+            target: bun-darwin-arm64
             artifact: quran-gen-darwin-arm64
             versions: v1 v2 v4
-          - target: bun-darwin-x64
+          - runner: macos-13
+            target: bun-darwin-x64
             artifact: quran-gen-darwin-x64
             versions: v1 v2 v4
 
-    runs-on: ${{ contains(matrix.target, 'darwin') && 'macos-latest' || 'ubuntu-latest' }}
+    runs-on: ${{ matrix.runner }}
 
     steps:
       - uses: actions/checkout@v4
@@ -75,10 +86,16 @@ jobs:
           (cd data && zip -r -q ../assets.zip $dirs)
 
       - name: Build binary with embedded assets
+        env:
+          TARGET: ${{ matrix.target }}
+          ARTIFACT: ${{ matrix.artifact }}
         run: |
-          bun build src/cli.ts assets.zip --compile --target=${{ matrix.target }} --outfile ${{ matrix.artifact }}
+          # `--external canvas` keeps the Cairo native binding (and its 15
+          # sibling dylibs) out of the bundle. Skia (@napi-rs/canvas) ships a
+          # single self-contained .node and is the only required engine.
+          bun build src/cli.ts assets.zip --compile --external canvas --target="$TARGET" --outfile "$ARTIFACT"
           cp node_modules/pngquant-bin/vendor/pngquant pngquant
-          tar czf ${{ matrix.artifact }}.tar.gz ${{ matrix.artifact }} pngquant
+          tar czf "$ARTIFACT.tar.gz" "$ARTIFACT" pngquant
 
       - uses: actions/upload-artifact@v4
         with:
