@@ -11,6 +11,7 @@ permissions:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           # Per-version binaries (smaller, single version bundled)
@@ -85,6 +86,11 @@ jobs:
           for v in ${{ matrix.versions }}; do dirs="$dirs $v"; done
           (cd data && zip -r -q ../assets.zip $dirs)
 
+      - name: Install pngquant from apt (linux-arm64)
+        # pngquant-bin has no arm64 prebuilt and can't compile on the runner.
+        if: matrix.target == 'bun-linux-arm64'
+        run: sudo apt-get update && sudo apt-get install -y pngquant
+
       - name: Build binary with embedded assets
         env:
           TARGET: ${{ matrix.target }}
@@ -94,7 +100,11 @@ jobs:
           # sibling dylibs) out of the bundle. Skia (@napi-rs/canvas) ships a
           # single self-contained .node and is the only required engine.
           bun build src/cli.ts assets.zip --compile --external canvas --target="$TARGET" --outfile "$ARTIFACT"
-          cp node_modules/pngquant-bin/vendor/pngquant pngquant
+          if [ -x node_modules/pngquant-bin/vendor/pngquant ]; then
+            cp node_modules/pngquant-bin/vendor/pngquant pngquant
+          else
+            cp "$(command -v pngquant)" pngquant
+          fi
           tar czf "$ARTIFACT.tar.gz" "$ARTIFACT" pngquant
 
       - uses: actions/upload-artifact@v4
