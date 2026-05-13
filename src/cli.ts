@@ -9,14 +9,22 @@ import { FontVersion, ImageFormat, RenderEngine, RenderMode } from "./types";
 const isCompiled = import.meta.dir.includes("$bunfs");
 const ROOT = isCompiled ? path.dirname(process.execPath) : path.join(import.meta.dir, "..");
 
-// In compiled mode, look for pngquant next to executable, then fall back to system PATH
+// In compiled mode, look for pngquant next to executable, then fall back to system PATH.
+// In dev mode, prefer the pngquant-bin package; fall back if absent (e.g. on linux-arm64
+// where pngquant-bin ships no usable prebuilt).
 const resolvePngquant = (): string => {
 	if (isCompiled) {
 		const local = path.join(ROOT, "pngquant");
 		if (existsSync(local)) return local;
 		return "pngquant";
 	}
-	return require("pngquant-bin").default;
+	try {
+		// Indirect require so Bun's bundler doesn't try to resolve at compile time —
+		// pngquant-bin is optional and only used by dev runs.
+		return Function("require", 'return require("pngquant-bin").default')(require) as string;
+	} catch {
+		return "pngquant";
+	}
 };
 const pngquantBin = resolvePngquant();
 
