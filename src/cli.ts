@@ -92,14 +92,13 @@ if (!hasArgs) {
 	const showBounds = process.argv.includes("bounds");
 	const boundsJson = process.argv.includes("json");
 	const quantizeAlpha = process.argv.includes("quantize");
-	const colorSurahName = process.argv.includes("color-surah");
 	const bench = process.argv.includes("bench");
 	const markerScale: MarkerScaleName = process.argv.includes("marker-3x") ? "3x" : "6x";
 	const engine = process.argv.includes("skia") ? RenderEngine.Skia : RenderEngine.Cairo;
 
 	if (startPage < 1 || endPage > 604 || startPage > endPage) {
 		console.error(
-			"Usage: bun src/cli.ts [startPage] [endPage] [width] [mode] [v1|v2|v4] [no-markers] [webp] [bounds] [json] [quantize] [color-surah] [skia]",
+			"Usage: bun src/cli.ts [startPage] [endPage] [width] [mode] [v1|v2|v4] [no-markers] [webp] [bounds] [json] [quantize] [skia]",
 		);
 		process.exit(1);
 	}
@@ -131,7 +130,9 @@ if (!hasArgs) {
 		showBounds,
 		boundsJson,
 		quantizeAlpha,
-		colorSurahName,
+		// TODO: re-enable color surah names once the v4-color font's tajweed colors render
+		// (names are solid-black OT-SVG glyphs; needs an OT-SVG rasterizer like resvg)
+		colorSurahName: false,
 		engine,
 		pngquantBin,
 		bench,

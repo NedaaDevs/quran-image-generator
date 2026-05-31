@@ -150,8 +150,10 @@ export const promptOptions = async (root: string): Promise<GeneratorOptions> => 
 		!isDebug &&
 		format === ImageFormat.PNG &&
 		(await confirm({ message: "Quantize alpha? (smaller PNGs)", default: false }));
-	const colorSurahName =
-		version === FontVersion.V4 && (await confirm({ message: "Color surah names?", default: true }));
+	// TODO: re-enable "Color surah names?" prompt once tajweed colors render. The v4-color
+	// font stores names as solid-black OT-SVG glyphs (only basmala/emblems carry color),
+	// so the option is a no-op until we add an OT-SVG rasterizer (e.g. resvg).
+	const colorSurahName = false;
 
 	return {
 		version,
