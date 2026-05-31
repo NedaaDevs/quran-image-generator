@@ -85,12 +85,15 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 	const headerGlyphsPath = path.join(opts.dataDir, "common", "surah-header-ligatures.json");
 	const headerGlyphs: Record<string, string> = JSON.parse(await Bun.file(headerGlyphsPath).text());
 
-	// Color surah-name font uses direct codepoints instead of GSUB ligatures
+	// surah-name-v4-color.ttf has no GSUB and no Latin cmap, so "surah001" tofu's out.
+	// It shares surah-header codepoints (ﱅ etc.), so reuse that mapping for direct glyph lookup.
 	if (opts.colorSurahName) {
-		const colorLigsPath = path.join(opts.dataDir, "common", "surah-name-color-ligatures.json");
-		if (existsSync(colorLigsPath)) {
-			setSurahNameGlyphs(JSON.parse(await Bun.file(colorLigsPath).text()));
+		const directGlyphs: Record<string, string> = {};
+		for (const [k, v] of Object.entries(headerGlyphs)) {
+			const n = k.replace("surah-", "");
+			directGlyphs[n] = v.trim();
 		}
+		setSurahNameGlyphs(directGlyphs);
 	}
 
 	const fmt = opts.format;
