@@ -4,7 +4,7 @@ import path from "node:path";
 import { losslessCompressPng } from "@napi-rs/image";
 
 import { createBoundsDb, type LineMetadata } from "./bounds-db";
-import { setEngine } from "./canvas-factory";
+import { setDarkInk, setEngine } from "./canvas-factory";
 import { createDb, loadSurahMeta } from "./database";
 import { registerPageFont, registerSurahFonts } from "./font-loader";
 import {
@@ -19,6 +19,7 @@ import {
 	renderSurahHeader,
 	renderSurahName,
 	resetMeasureCtx,
+	setBaseInk,
 	setBasmalaText,
 	setSurahNameGlyphs,
 } from "./renderer";
@@ -43,6 +44,10 @@ export interface GeneratorOptions {
 	boundsJson: boolean;
 	quantizeAlpha: boolean;
 	colorSurahName: boolean;
+	/** Light value renders a dark-theme V4 page; tajwid COLR/CPAL colors are unaffected. Default black. */
+	inkColor?: string;
+	/** Output theme subdir under .../{ext}/ — pages split by theme, bounds/markers shared. Default "light". */
+	theme?: string;
 	pngquantBin?: string;
 	bench: boolean;
 	engine: RenderEngine;
@@ -66,6 +71,10 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 	setEngine(opts.engine);
 	// Measurement context must match the active engine's font registry
 	resetMeasureCtx();
+	// Dark theming: V4 base ink lives in the font's CPAL palette (patched at registration);
+	// plain decorative fonts have no palette and honor fillStyle (baseInk). Both default to black.
+	setDarkInk(opts.inkColor);
+	setBaseInk(opts.inkColor ?? "#000000");
 	const dbPath = path.join(opts.dataDir, opts.version, "quran-layout.db");
 	const fontsDir = path.join(opts.dataDir, opts.version, "fonts");
 	const db = createDb(dbPath);
@@ -128,6 +137,8 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 	const pad = (n: number, len: number) => String(n).padStart(len, "0");
 
 	const fmtDir = path.join(opts.outputDir, opts.version, String(opts.width), ext);
+	// Pages differ by theme; bounds.db and markers are shared (glyph geometry is theme-independent).
+	const themeDir = path.join(fmtDir, opts.theme ?? "light");
 
 	// Bounds written to SQLite for efficient per-page/ayah queries at runtime
 	const boundsDbPath = path.join(fmtDir, "bounds.db");
@@ -192,7 +203,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 				opts.centerPages,
 				opts.centerText,
 			);
-			const outDir = path.join(fmtDir, "pages");
+			const outDir = path.join(themeDir, "pages");
 			mkdirSync(outDir, { recursive: true });
 			await Bun.write(path.join(outDir, `${pad(page, 3)}.${ext}`), await optimize(buffer));
 			boundsDb.writeBounds(bounds);
@@ -208,7 +219,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 				opts.width,
 				contentWidth,
 			);
-			const outDir = path.join(fmtDir, "lines", pad(page, 3));
+			const outDir = path.join(themeDir, "lines", pad(page, 3));
 			mkdirSync(outDir, { recursive: true });
 
 			const lineMap = new Map(lineData.map((ld) => [ld.line, ld]));

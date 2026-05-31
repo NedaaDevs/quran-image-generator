@@ -155,6 +155,16 @@ export const promptOptions = async (root: string): Promise<GeneratorOptions> => 
 	// so the option is a no-op until we add an OT-SVG rasterizer (e.g. resvg).
 	const colorSurahName = false;
 
+	// Dark theme only applies to V4: its base ink is a CPAL palette entry recolored light,
+	// while tajweed colors stay as-is. V1/V2 are monochrome and themed client-side via tintColor.
+	const DARK_INK = "#E8E0D4";
+	let inkColor: string | undefined;
+	if (version === FontVersion.V4 && (await confirm({ message: "Dark theme? (light base ink)", default: false }))) {
+		const customInk = await input({ message: "Base ink color:", default: DARK_INK });
+		inkColor = customInk.trim() || DARK_INK;
+	}
+	const theme = inkColor ? "dark" : "light";
+
 	return {
 		version,
 		mode,
@@ -170,6 +180,8 @@ export const promptOptions = async (root: string): Promise<GeneratorOptions> => 
 		boundsJson: false,
 		quantizeAlpha,
 		colorSurahName,
+		inkColor,
+		theme,
 		bench: false,
 		engine: RenderEngine.Cairo,
 		pages: randomPages,

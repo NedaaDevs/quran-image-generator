@@ -99,6 +99,13 @@ export const setSurahNameGlyphs = (glyphs: Record<string, string>) => {
 	surahNameGlyphs = glyphs;
 };
 
+// Fill for the non-tajwid base layer. V4 tajwid glyphs draw from the font's COLR/CPAL tables
+// and ignore fillStyle, so this only recolors the black base text — set light for dark-theme V4.
+let baseInk = "#000000";
+export const setBaseInk = (color: string) => {
+	baseInk = color;
+};
+
 // Builds "سورة <name>" ligature text — v1/v4 need "surah-icon" prefix, v2 bakes it in
 const surahNameText = (surahNumber: number, fontSize: number): string => {
 	// Color fonts use direct codepoint mapping instead of GSUB ligatures
@@ -133,7 +140,7 @@ export const renderSurahHeader = (
 		const refW = cmx().measureText(glyph.trim()).width;
 		const fontSize = Math.floor((100 * width) / refW);
 		ctx.font = `${fontSize}px "${SURAH_HEADER_FONT}"`;
-		ctx.fillStyle = "#000000";
+		ctx.fillStyle = baseInk;
 		ctx.textAlign = "center";
 		ctx.textBaseline = "middle";
 		ctx.fillText(glyph.trim(), width / 2, lineHeight / 2);
@@ -153,7 +160,7 @@ export const renderSurahName = (
 	const ctx = canvas.getContext("2d");
 	const fontSize = Math.floor(lineHeight * 0.65);
 	ctx.font = `${fontSize}px "${SURAH_NAME_FONT}"`;
-	ctx.fillStyle = "#000000";
+	ctx.fillStyle = baseInk;
 	ctx.textBaseline = "middle";
 	ctx.textAlign = "center";
 	ctx.direction = "rtl";
@@ -176,7 +183,7 @@ export const renderSurahFrame = (
 		const c = createDecorativeCanvas(width, lineHeight);
 		const ctx = c.getContext("2d");
 		ctx.font = `${fontSize}px "${SURAH_HEADER_FONT}"`;
-		ctx.fillStyle = "#000000";
+		ctx.fillStyle = baseInk;
 		ctx.textAlign = "center";
 		ctx.textBaseline = "middle";
 		ctx.fillText(glyph, width / 2, lineHeight / 2);
@@ -222,7 +229,7 @@ export const renderBasmala = (
 	const canvas = createDecorativeCanvas(width, lineHeight);
 	const ctx = canvas.getContext("2d");
 	ctx.font = `${fontSize}px "${BASMALA_FONT}"`;
-	ctx.fillStyle = "#000000";
+	ctx.fillStyle = baseInk;
 	ctx.textAlign = "center";
 	ctx.textBaseline = "middle";
 	ctx.direction = "rtl";
@@ -255,7 +262,7 @@ export const renderDecorativePixels = (
 				const refW = cmx().measureText(glyph.trim()).width;
 				const hdrSize = Math.floor((100 * width) / refW);
 				ctx.font = `${hdrSize}px "${SURAH_HEADER_FONT}"`;
-				ctx.fillStyle = "#000000";
+				ctx.fillStyle = baseInk;
 				ctx.textAlign = "center";
 				ctx.textBaseline = "middle";
 				ctx.fillText(glyph.trim(), width / 2, lineHeight / 2);
@@ -263,7 +270,7 @@ export const renderDecorativePixels = (
 		} else {
 			const nameFontSize = Math.floor(lineHeight * 0.65);
 			ctx.font = `${nameFontSize}px "${SURAH_NAME_FONT}"`;
-			ctx.fillStyle = "#000000";
+			ctx.fillStyle = baseInk;
 			ctx.textBaseline = "middle";
 			ctx.textAlign = "center";
 			ctx.direction = "rtl";
@@ -271,7 +278,7 @@ export const renderDecorativePixels = (
 		}
 	} else if (lineInfo.type === LineType.Basmala) {
 		ctx.font = `${fontSize}px "${BASMALA_FONT}"`;
-		ctx.fillStyle = "#000000";
+		ctx.fillStyle = baseInk;
 		ctx.textAlign = "center";
 		ctx.textBaseline = "middle";
 		ctx.direction = "rtl";
@@ -303,7 +310,7 @@ export const drawDecorativeLine = (
 				const refW = cmx().measureText(glyph.trim()).width;
 				const hdrSize = Math.floor((100 * width) / refW);
 				ctx.font = `${hdrSize}px "${SURAH_HEADER_FONT}"`;
-				ctx.fillStyle = "#000000";
+				ctx.fillStyle = baseInk;
 				ctx.textAlign = "center";
 				ctx.textBaseline = "middle";
 				ctx.fillText(glyph.trim(), width / 2, y + lineHeight / 2);
@@ -311,7 +318,7 @@ export const drawDecorativeLine = (
 		} else {
 			const nameFontSize = Math.floor(lineHeight * 0.45);
 			ctx.font = `${nameFontSize}px "${SURAH_NAME_FONT}"`;
-			ctx.fillStyle = "#000000";
+			ctx.fillStyle = baseInk;
 			ctx.textBaseline = "middle";
 			ctx.textAlign = "center";
 			ctx.direction = "rtl";
@@ -319,7 +326,7 @@ export const drawDecorativeLine = (
 		}
 	} else if (lineInfo.type === LineType.Basmala) {
 		ctx.font = `${fontSize}px "${BASMALA_FONT}"`;
-		ctx.fillStyle = "#000000";
+		ctx.fillStyle = baseInk;
 		ctx.textAlign = "center";
 		ctx.textBaseline = "middle";
 		ctx.direction = "rtl";
@@ -381,7 +388,7 @@ export const drawLineJustified = (
 ): GlyphBounds[] => {
 	ctx.font = `${fontSize}px "${fontFamily}"`;
 	ctx.textAlign = "left";
-	ctx.fillStyle = "#000000";
+	ctx.fillStyle = baseInk;
 	ctx.textBaseline = "alphabetic";
 	mx.font = `${fontSize}px "${fontFamily}"`;
 

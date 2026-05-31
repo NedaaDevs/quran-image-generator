@@ -1,3 +1,7 @@
+import { readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { patchCpalBaseInk } from "./font-palette";
 import type { RenderEngine } from "./types";
 
 // Thin abstraction over @napi-rs/canvas (Skia, default) and canvas (Cairo, optional).
@@ -51,16 +55,42 @@ export const createCanvas = (width: number, height: number) => {
 	return getSkia().createCanvas(width, height);
 };
 
+// Dark theme: V4 base ink is a CPAL palette entry, not fillStyle, so it's patched when the
+// font is registered. Default (unset) leaves registration untouched — light mode is unchanged.
+let darkInk: string | undefined;
+export const setDarkInk = (hex?: string) => {
+	darkInk = hex;
+};
+
+let darkFontCounter = 0;
+// Cairo can only register a font from a path, so patched data is written to a temp file;
+// Skia accepts the patched buffer directly.
+const patchToFile = (fontPath: string, family: string): string | null => {
+	const patched = darkInk ? patchCpalBaseInk(readFileSync(fontPath), darkInk) : null;
+	if (!patched) return null;
+	const p = path.join(tmpdir(), `qig-dark-${family.replace(/\W/g, "_")}-${darkFontCounter++}.ttf`);
+	writeFileSync(p, patched);
+	return p;
+};
+const cairoRegister = (c: CairoModule, fontPath: string, family: string) => {
+	c.registerFont(patchToFile(fontPath, family) ?? fontPath, { family });
+};
+const skiaRegister = (fontPath: string, family: string) => {
+	const patched = darkInk ? patchCpalBaseInk(readFileSync(fontPath), darkInk) : null;
+	if (patched) getSkia().GlobalFonts.register(patched, family);
+	else getSkia().GlobalFonts.registerFromPath(fontPath, family);
+};
+
 export const registerFont = (fontPath: string, family: string) => {
 	if (engine === "cairo") {
 		const c = getCairo();
 		if (c) {
-			c.registerFont(fontPath, { family });
+			cairoRegister(c, fontPath, family);
 			return;
 		}
 		warnCairoUnavailable();
 	}
-	getSkia().GlobalFonts.registerFromPath(fontPath, family);
+	skiaRegister(fontPath, family);
 };
 
 // Decorative rendering (surah names, headers, basmala) prefers Cairo for GSUB
@@ -74,8 +104,8 @@ export const createDecorativeCanvas = (width: number, height: number) => {
 export const registerDecorativeFont = (fontPath: string, family: string) => {
 	const c = getCairo();
 	if (c) {
-		c.registerFont(fontPath, { family });
+		cairoRegister(c, fontPath, family);
 		return;
 	}
-	getSkia().GlobalFonts.registerFromPath(fontPath, family);
+	skiaRegister(fontPath, family);
 };

@@ -95,10 +95,17 @@ if (!hasArgs) {
 	const bench = process.argv.includes("bench");
 	const markerScale: MarkerScaleName = process.argv.includes("marker-3x") ? "3x" : "6x";
 	const engine = process.argv.includes("skia") ? RenderEngine.Skia : RenderEngine.Cairo;
+	// `dark` recolors the non-tajwid base layer light (V4 tajwid colors come from COLR/CPAL
+	// and are unaffected); `--ink <hex>` overrides the default dark-theme ink and implies dark.
+	const DARK_INK = "#E8E0D4";
+	const inkIdx = process.argv.indexOf("--ink");
+	const inkColor = inkIdx !== -1 ? process.argv[inkIdx + 1] : process.argv.includes("dark") ? DARK_INK : undefined;
+	// Theme drives the output subdir (output/.../png/{theme}/pages); bounds.db/markers stay shared.
+	const theme = inkColor ? "dark" : "light";
 
 	if (startPage < 1 || endPage > 604 || startPage > endPage) {
 		console.error(
-			"Usage: bun src/cli.ts [startPage] [endPage] [width] [mode] [v1|v2|v4] [no-markers] [webp] [bounds] [json] [quantize] [skia]",
+			"Usage: bun src/cli.ts [startPage] [endPage] [width] [mode] [v1|v2|v4] [no-markers] [webp] [bounds] [json] [quantize] [skia] [dark] [--ink <hex>]",
 		);
 		process.exit(1);
 	}
@@ -133,6 +140,8 @@ if (!hasArgs) {
 		// TODO: re-enable color surah names once the v4-color font's tajweed colors render
 		// (names are solid-black OT-SVG glyphs; needs an OT-SVG rasterizer like resvg)
 		colorSurahName: false,
+		inkColor,
+		theme,
 		engine,
 		pngquantBin,
 		bench,
