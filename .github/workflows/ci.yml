@@ -19,7 +19,7 @@ jobs:
       - run: bun install
 
       - name: Lint and format check
-        run: bunx biome check src/ scripts/
+        run: bunx biome check src/ scripts/ test/
 
   typecheck:
     runs-on: ubuntu-latest
@@ -34,6 +34,35 @@ jobs:
 
       - name: Type check
         run: bunx tsc --noEmit
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install
+
+      # Layout/render tests need the gitignored font + layout assets (same release the
+      # binary build pulls from).
+      - name: Download render assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download assets -D data/ -p "common.zip"
+          (cd data && unzip -o -q common.zip && rm common.zip)
+          for v in v1 v2 v4; do
+            gh release download assets -D data/ -p "${v}.zip"
+            (cd data && unzip -o -q "${v}.zip" && rm "${v}.zip")
+          done
+
+      # Goldens are blessed on the dev engine (Cairo); CI renders via Skia fallback, so run
+      # the engine-agnostic invariants (L1 + L2) and skip the exact-geometry goldens.
+      - name: Test
+        run: SKIP_GOLDENS=1 bun test
 
   build:
     runs-on: ubuntu-latest
