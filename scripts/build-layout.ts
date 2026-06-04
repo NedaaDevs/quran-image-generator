@@ -103,11 +103,18 @@ const buildVersion = (version: string, cfg: { layout: string; wbw: string }) => 
 			// Skip markers — they get merged with preceding word below
 			if (markerIds.has(id)) continue;
 
-			// Merge marker glyph with preceding word (space-separated) if next word is a marker on this line
+			// Merge the ayah-end marker into its preceding word's cell (space-separated).
+			// The marker is always the ayah's last word (id+1 of its final text word), so this
+			// only fires on that word. No line-boundary guard: when an ayah fills a line
+			// edge-to-edge its marker spills to the next line's first_word_id — without merging
+			// it here that marker is skipped on both lines and dropped entirely.
 			const nextId = id + 1;
 			const next = wordById.get(nextId);
-			const nextIsMarker = next && markerIds.has(nextId) && nextId <= p.last_word_id;
-			const text = nextIsMarker ? `${w.text} ${next?.text}` : w.text;
+			const nextIsMarker = next && markerIds.has(nextId);
+			// Strip stray intra-word spaces (a few V1 wbw entries embed them; V2/V4 never do)
+			// so the only space in a cell is the marker delimiter consumers split on.
+			const word = w.text.replace(/ /g, "");
+			const text = nextIsMarker ? `${word} ${next?.text.replace(/ /g, "")}` : word;
 
 			insertWord.run(p.page_number, p.line_number, position, w.surah, w.ayah, w.word, text);
 			position++;
