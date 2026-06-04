@@ -50,15 +50,16 @@ export const createDb = (dbPath: string) => {
 		}));
 		if (!splitMarkers) return glyphs;
 
-		// End-of-ayah entries have "textGlyph markerGlyph" (space-separated)
-		// Split into two: the word glyph + the marker glyph (flagged with same ayah)
+		// End-of-ayah entries are space-separated: "word marker" when the marker sits on the
+		// same line as its word, or " marker" (leading space, empty word) when the ayah filled
+		// the previous line and the marker spilled to the start of this one.
+		// Split into the word glyph + the marker glyph (flagged); drop the empty word if any.
 		return glyphs.flatMap((g) => {
 			const spaceIdx = g.text_qpc.indexOf(" ");
 			if (spaceIdx === -1) return [g];
-			return [
-				{ ...g, text_qpc: g.text_qpc.slice(0, spaceIdx) },
-				{ ...g, text_qpc: g.text_qpc.slice(spaceIdx + 1), isMarker: true },
-			];
+			const word = g.text_qpc.slice(0, spaceIdx);
+			const marker = { ...g, text_qpc: g.text_qpc.slice(spaceIdx + 1), isMarker: true };
+			return word ? [{ ...g, text_qpc: word }, marker] : [marker];
 		});
 	};
 

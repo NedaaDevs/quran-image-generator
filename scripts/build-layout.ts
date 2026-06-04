@@ -96,25 +96,33 @@ const buildVersion = (version: string, cfg: { layout: string; wbw: string }) => 
 		if (p.line_type !== "ayah" || !p.first_word_id || !p.last_word_id) continue;
 
 		let position = 1;
+		// Strip stray intra-word spaces (a few V1 wbw entries embed them; V2/V4 never do)
+		// so the only space in a cell is the marker delimiter consumers split on.
+		const clean = (t: string) => t.replace(/ /g, "");
 		for (let id = p.first_word_id; id <= p.last_word_id; id++) {
 			const w = wordById.get(id);
 			if (!w) continue;
 
-			// Skip markers — they get merged with preceding word below
-			if (markerIds.has(id)) continue;
+			if (markerIds.has(id)) {
+				// A marker is the ayah's last word. If its preceding word sits on this line it was
+				// already merged into that word's cell below — skip. Otherwise the ayah filled the
+				// previous line and tarteel placed the marker as this line's first word: emit it as
+				// a standalone cell (leading space → consumers flag it as the marker). Keeping it on
+				// tarteel's line preserves the page's line-width balance; merging it onto the prior
+				// line would overfill that line and shrink the page font.
+				if (id > p.first_word_id) continue;
+				insertWord.run(p.page_number, p.line_number, position, w.surah, w.ayah, w.word, ` ${clean(w.text)}`);
+				position++;
+				_wordCount++;
+				continue;
+			}
 
-			// Merge the ayah-end marker into its preceding word's cell (space-separated).
-			// The marker is always the ayah's last word (id+1 of its final text word), so this
-			// only fires on that word. No line-boundary guard: when an ayah fills a line
-			// edge-to-edge its marker spills to the next line's first_word_id — without merging
-			// it here that marker is skipped on both lines and dropped entirely.
+			// Merge the ayah-end marker into the preceding word's cell (space-separated) when it
+			// falls on this same line (its id is the final text word's id + 1).
 			const nextId = id + 1;
 			const next = wordById.get(nextId);
-			const nextIsMarker = next && markerIds.has(nextId);
-			// Strip stray intra-word spaces (a few V1 wbw entries embed them; V2/V4 never do)
-			// so the only space in a cell is the marker delimiter consumers split on.
-			const word = w.text.replace(/ /g, "");
-			const text = nextIsMarker ? `${word} ${next?.text.replace(/ /g, "")}` : word;
+			const nextIsMarker = next && markerIds.has(nextId) && nextId <= p.last_word_id;
+			const text = nextIsMarker ? `${clean(w.text)} ${clean(next?.text ?? "")}` : clean(w.text);
 
 			insertWord.run(p.page_number, p.line_number, position, w.surah, w.ayah, w.word, text);
 			position++;
