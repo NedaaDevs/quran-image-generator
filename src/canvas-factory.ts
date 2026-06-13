@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { patchCpalBaseInk } from "./font-palette";
+import { type ColorRemap, patchCpalBaseInk } from "./font-palette";
 import type { RenderEngine } from "./types";
 
 // Thin abstraction over @napi-rs/canvas (Skia, default) and canvas (Cairo, optional).
@@ -56,17 +56,26 @@ export const createCanvas = (width: number, height: number) => {
 };
 
 // Dark theme: V4 base ink is a CPAL palette entry, not fillStyle, so it's patched when the
-// font is registered. Default (unset) leaves registration untouched — light mode is unchanged.
+// font is registered. A caller-supplied tajwid recolor map remaps rule colors the same way.
+// Both default unset — registration is untouched and light mode is unchanged.
 let darkInk: string | undefined;
+let recolor: ColorRemap[] = [];
 export const setDarkInk = (hex?: string) => {
 	darkInk = hex;
 };
+export const setRecolor = (map?: ColorRemap[]) => {
+	recolor = map ?? [];
+};
+
+// Patch only when something asks for it — keeps light/no-recolor output byte-identical.
+const patchFont = (fontPath: string): Buffer | null =>
+	darkInk || recolor.length ? patchCpalBaseInk(readFileSync(fontPath), darkInk, recolor) : null;
 
 let darkFontCounter = 0;
 // Cairo can only register a font from a path, so patched data is written to a temp file;
 // Skia accepts the patched buffer directly.
 const patchToFile = (fontPath: string, family: string): string | null => {
-	const patched = darkInk ? patchCpalBaseInk(readFileSync(fontPath), darkInk) : null;
+	const patched = patchFont(fontPath);
 	if (!patched) return null;
 	const p = path.join(tmpdir(), `qig-dark-${family.replace(/\W/g, "_")}-${darkFontCounter++}.ttf`);
 	writeFileSync(p, patched);
@@ -76,7 +85,7 @@ const cairoRegister = (c: CairoModule, fontPath: string, family: string) => {
 	c.registerFont(patchToFile(fontPath, family) ?? fontPath, { family });
 };
 const skiaRegister = (fontPath: string, family: string) => {
-	const patched = darkInk ? patchCpalBaseInk(readFileSync(fontPath), darkInk) : null;
+	const patched = patchFont(fontPath);
 	if (patched) getSkia().GlobalFonts.register(patched, family);
 	else getSkia().GlobalFonts.registerFromPath(fontPath, family);
 };

@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { confirm, input, select } from "@inquirer/prompts";
+import { type ColorRemap, parseRecolor } from "./font-palette";
 import type { GeneratorOptions } from "./generator";
 import type { MarkerScaleName } from "./renderer";
 import { FontVersion, ImageFormat, RenderEngine, RenderMode } from "./types";
@@ -165,6 +166,29 @@ export const promptOptions = async (root: string): Promise<GeneratorOptions> => 
 	}
 	const theme = inkColor ? "dark" : "light";
 
+	// Optional generic tajweed recolor (V4 only) — no palette is baked in; caller supplies it.
+	const parseSpec = (s: string) => parseRecolor(existsSync(s) ? JSON.parse(readFileSync(s, "utf8")) : s);
+	let recolor: ColorRemap[] | undefined;
+	if (version === FontVersion.V4) {
+		const spec = (
+			await input({
+				message: 'Tajweed recolor? ("SRC=DST,..." or a JSON file, blank for none):',
+				default: "",
+				validate: (v) => {
+					const s = v.trim();
+					if (!s) return true;
+					try {
+						parseSpec(s);
+						return true;
+					} catch (e) {
+						return (e as Error).message;
+					}
+				},
+			})
+		).trim();
+		if (spec) recolor = parseSpec(spec);
+	}
+
 	return {
 		version,
 		mode,
@@ -181,6 +205,7 @@ export const promptOptions = async (root: string): Promise<GeneratorOptions> => 
 		quantizeAlpha,
 		colorSurahName,
 		inkColor,
+		recolor,
 		theme,
 		bench: false,
 		engine: RenderEngine.Cairo,

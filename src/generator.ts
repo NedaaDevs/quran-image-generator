@@ -4,9 +4,10 @@ import path from "node:path";
 import { losslessCompressPng } from "@napi-rs/image";
 
 import { createBoundsDb, type LineMetadata } from "./bounds-db";
-import { setDarkInk, setEngine } from "./canvas-factory";
+import { setDarkInk, setEngine, setRecolor } from "./canvas-factory";
 import { createDb, loadSurahMeta } from "./database";
 import { registerPageFont, registerSurahFonts } from "./font-loader";
+import type { ColorRemap } from "./font-palette";
 import {
 	type MarkerScaleName,
 	measurePage,
@@ -46,6 +47,8 @@ export interface GeneratorOptions {
 	colorSurahName: boolean;
 	/** Light value renders a dark-theme V4 page; tajwid COLR/CPAL colors are unaffected. Default black. */
 	inkColor?: string;
+	/** Optional V4 tajwid rule recolor (source→target CPAL substitutions). Omit to leave colors as-is. */
+	recolor?: ColorRemap[];
 	/** Output theme subdir under .../{ext}/ — pages split by theme, bounds/markers shared. Default "light". */
 	theme?: string;
 	pngquantBin?: string;
@@ -74,6 +77,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 	// Dark theming: V4 base ink lives in the font's CPAL palette (patched at registration);
 	// plain decorative fonts have no palette and honor fillStyle (baseInk). Both default to black.
 	setDarkInk(opts.inkColor);
+	setRecolor(opts.recolor);
 	setBaseInk(opts.inkColor ?? "#000000");
 	const dbPath = path.join(opts.dataDir, opts.version, "quran-layout.db");
 	const fontsDir = path.join(opts.dataDir, opts.version, "fonts");

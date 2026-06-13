@@ -31,7 +31,7 @@ Prompts for version, mode, width, page range, format, and markers. Downloads ass
 ### CLI args
 
 ```bash
-bun src/cli.ts [startPage] [endPage] [width] [mode] [v1|v2|v4] [no-markers] [webp] [bounds] [json] [quantize]
+bun src/cli.ts [startPage] [endPage] [width] [mode] [v1|v2|v4] [no-markers] [webp] [bounds] [json] [quantize] [dark] [--ink <hex>] [--recolor <SRC=DST,...|file.json>]
 ```
 
 Examples:
@@ -39,6 +39,32 @@ Examples:
 bun src/cli.ts 1 604 1440 line v2           # all pages, line mode, V2
 bun src/cli.ts 1 10 1440 page v1 no-markers # pages 1-10, page mode, no markers
 bun src/cli.ts 1 604 1440 line v4 webp      # V4 tajweed, WebP format
+```
+
+#### Dark theme & tajweed recolor (V4 only)
+
+V4 tajweed colors live in the font's `COLR`/`CPAL` color tables, not in `fillStyle`, so they're
+recolored by patching `CPAL` palette 0 at font-registration time. Glyph geometry (`glyf`/`hmtx`)
+and alpha are left byte-identical — only color records change.
+
+```bash
+bun src/cli.ts 1 604 2160 line v4 dark                 # base ink → light default (#E8E0D4)
+bun src/cli.ts 1 604 2160 line v4 --ink "#E8E0D4"      # custom base ink (implies dark)
+```
+
+- `dark` / `--ink <hex>` — recolors the near-black **base** ink only; saturated tajweed rules are
+  left as-is.
+- `--recolor "RRGGBB=RRGGBB,..."` — optional, generic remap of **any** palette entry to a new color.
+  Each source is matched against palette 0 with a ±10/channel tolerance. No palette is baked in —
+  supply your own. Combine with `--ink`/`dark` to make rule colors legible on a dark background:
+
+```bash
+# Lighten the base ink and remap two tajweed rule colors in one pass:
+bun src/cli.ts 1 604 2160 line v4 --ink "#E8E0D4" \
+  --recolor "F40000=F77B72,3F48E6=6BA6E6"
+
+# Or supply the map as a JSON file of { "SRC": "DST" } hex pairs:
+bun src/cli.ts 1 604 2160 line v4 --recolor recolor.json
 ```
 
 ### Docker

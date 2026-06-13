@@ -1,5 +1,6 @@
-import { existsSync, mkdirSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, unlinkSync } from "node:fs";
 import path from "node:path";
+import { type ColorRemap, parseRecolor } from "./font-palette";
 import { generate } from "./generator";
 import { promptOptions } from "./interactive";
 import type { MarkerScaleName } from "./renderer";
@@ -103,9 +104,27 @@ if (!hasArgs) {
 	// Theme drives the output subdir (output/.../png/{theme}/pages); bounds.db/markers stay shared.
 	const theme = inkColor ? "dark" : "light";
 
+	// Optional generic V4 tajwid recolor (caller supplies the palette — none is baked in). The value
+	// is either an inline "RRGGBB=RRGGBB,..." spec or a path to a JSON file of { "RRGGBB": "RRGGBB" }.
+	const recolorIdx = process.argv.indexOf("--recolor");
+	let recolor: ColorRemap[] | undefined;
+	if (recolorIdx !== -1) {
+		const arg = process.argv[recolorIdx + 1];
+		if (!arg) {
+			console.error('--recolor needs a value: "RRGGBB=RRGGBB,..." or a path to a JSON map');
+			process.exit(1);
+		}
+		try {
+			recolor = parseRecolor(existsSync(arg) ? JSON.parse(readFileSync(arg, "utf8")) : arg);
+		} catch (e) {
+			console.error(`Invalid --recolor: ${(e as Error).message}`);
+			process.exit(1);
+		}
+	}
+
 	if (startPage < 1 || endPage > 604 || startPage > endPage) {
 		console.error(
-			"Usage: bun src/cli.ts [startPage] [endPage] [width] [mode] [v1|v2|v4] [no-markers] [webp] [bounds] [json] [quantize] [skia] [dark] [--ink <hex>]",
+			"Usage: bun src/cli.ts [startPage] [endPage] [width] [mode] [v1|v2|v4] [no-markers] [webp] [bounds] [json] [quantize] [skia] [dark] [--ink <hex>] [--recolor <SRC=DST,...|file.json>]",
 		);
 		process.exit(1);
 	}
@@ -141,6 +160,7 @@ if (!hasArgs) {
 		// (names are solid-black OT-SVG glyphs; needs an OT-SVG rasterizer like resvg)
 		colorSurahName: false,
 		inkColor,
+		recolor,
 		theme,
 		engine,
 		pngquantBin,
