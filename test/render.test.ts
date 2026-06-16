@@ -1,10 +1,11 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { type BoundRow, hasAssets, PAD, renderRepPages, VERSIONS, WIDTH } from "./helpers";
+import { type BoundRow, DIMENSIONS, hasAssets, PAD, renderRepPages, VERSIONS, WIDTH } from "./helpers";
 
 // Layer 2 (geometry invariants) + Layer 3 (golden snapshots). Both need a render, so the pages
-// are rendered once per version and shared. Guards the justification-regression class of bug.
+// are rendered once per (version, width) and shared. Guards the justification-regression class
+// of bug, and that bounds stay valid at every shipped render dimension (markers included).
 
 const GOLDEN_DIR = path.join(import.meta.dir, "__golden__");
 const UPDATE_GOLDENS = process.env.UPDATE_GOLDENS === "1";
@@ -12,7 +13,6 @@ const UPDATE_GOLDENS = process.env.UPDATE_GOLDENS === "1";
 // engines/OSes, so skip the exact comparison in environments that didn't bless them.
 const SKIP_GOLDENS = process.env.SKIP_GOLDENS === "1";
 const GEOM_TOL = Number(process.env.GOLDEN_TOL ?? 2);
-const RIGHT_EDGE = WIDTH - PAD; // 1400
 
 const byLine = (rows: BoundRow[]) => {
 	const m = new Map<string, BoundRow[]>();
@@ -25,45 +25,68 @@ const byLine = (rows: BoundRow[]) => {
 	return m;
 };
 
+// Geometry invariants that must hold at every render width. Bounds are absolute pixels in the
+// image's own space, so the right edge tracks width - PAD (not a fixed 1400).
 for (const v of VERSIONS) {
 	const present = hasAssets(v);
-	describe(`render invariants: ${v}`, () => {
+	for (const width of DIMENSIONS) {
+		const rightEdge = width - PAD;
+		describe(`render invariants: ${v} @${width}`, () => {
+			let rows: BoundRow[] = [];
+			// Rendering the representative pages through the real pipeline takes well over bun's
+			// default 5s hook timeout.
+			beforeAll(async () => {
+				if (present) rows = await renderRepPages(v, width);
+			}, 120_000);
+
+			// No glyph may render outside the canvas (catches markers overflowing a too-narrow line).
+			// Small grace absorbs sub-pixel rasterizer differences; real overflow is tens of px.
+			test.skipIf(!present)("no glyph off-canvas", () => {
+				const bad = rows.filter((r) => r.x < -GEOM_TOL || r.x + r.width > width + GEOM_TOL);
+				expect(bad).toEqual([]);
+			});
+
+			// Every text line is right-aligned to width - pad. A line that fails this lost its
+			// justification (the font-shrink regression left lines short of the right edge too).
+			test.skipIf(!present)("every text line aligns to the right edge", () => {
+				const offenders: string[] = [];
+				for (const [k, line] of byLine(rows)) {
+					const right = Math.max(...line.map((r) => r.x + r.width));
+					if (Math.abs(right - rightEdge) > GEOM_TOL) offenders.push(`${k} right=${right}`);
+				}
+				expect(offenders).toEqual([]);
+			});
+
+			// Markers carry no drawn glyph — only the reserved box the marker overlay sizes itself to.
+			// At any width that box must exist (count stable) and stay non-zero and on-canvas.
+			test.skipIf(!present)("markers keep a valid on-canvas box", () => {
+				const markers = rows.filter((r) => r.isMarker === 1);
+				const bad = markers.filter(
+					(r) => r.width <= 0 || r.height <= 0 || r.x < -GEOM_TOL || r.x + r.width > width + GEOM_TOL,
+				);
+				expect(bad).toEqual([]);
+				expect(markers.length).toBeGreaterThan(0);
+			});
+
+			test.skipIf(!present)("renders a non-trivial number of glyphs", () => {
+				expect(rows.length).toBeGreaterThan(500);
+			});
+		});
+	}
+}
+
+// Layer 3 — golden snapshot, blessed at WIDTH only (geometry is width-specific; the per-dimension
+// invariants above cover the other widths).
+for (const v of VERSIONS) {
+	const present = hasAssets(v);
+	describe(`golden snapshot: ${v}`, () => {
 		let rows: BoundRow[] = [];
-		// Rendering the representative pages through the real pipeline takes well over bun's
-		// default 5s hook timeout.
 		beforeAll(async () => {
-			if (present) rows = await renderRepPages(v);
+			if (present) rows = await renderRepPages(v, WIDTH);
 		}, 120_000);
 
-		// No glyph may render outside the canvas (catches markers overflowing a too-narrow line).
-		// Small grace absorbs sub-pixel rasterizer differences; real overflow is tens of px.
-		test.skipIf(!present)("no glyph off-canvas", () => {
-			const bad = rows.filter((r) => r.x < -GEOM_TOL || r.x + r.width > WIDTH + GEOM_TOL);
-			expect(bad).toEqual([]);
-		});
-
-		// Every text line is right-aligned to width - pad. A line that fails this lost its
-		// justification (the font-shrink regression left lines short of the right edge too).
-		test.skipIf(!present)("every text line aligns to the right edge", () => {
-			const offenders: string[] = [];
-			for (const [k, line] of byLine(rows)) {
-				const right = Math.max(...line.map((r) => r.x + r.width));
-				if (Math.abs(right - RIGHT_EDGE) > GEOM_TOL) offenders.push(`${k} right=${right}`);
-			}
-			expect(offenders).toEqual([]);
-		});
-
-		test.skipIf(!present)("no zero-width marker bounds", () => {
-			const bad = rows.filter((r) => r.isMarker === 1 && r.width <= 0);
-			expect(bad).toEqual([]);
-		});
-
-		test.skipIf(!present)("renders a non-trivial number of glyphs", () => {
-			expect(rows.length).toBeGreaterThan(500);
-		});
-
-		// Layer 3 — golden snapshot. Structural fields must match exactly; geometry within a few
-		// px. Re-bless with UPDATE_GOLDENS=1 after an intentional layout change.
+		// Structural fields must match exactly; geometry within a few px. Re-bless with
+		// UPDATE_GOLDENS=1 after an intentional layout change.
 		test.skipIf(!present || SKIP_GOLDENS)("bounds match golden snapshot", () => {
 			const file = path.join(GOLDEN_DIR, `${v}.json`);
 			if (UPDATE_GOLDENS) {

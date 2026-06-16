@@ -12,6 +12,10 @@ export const VERSIONS = [FontVersion.V1, FontVersion.V2, FontVersion.V4] as cons
 export const TOTAL_AYAHS = 6236;
 export const WIDTH = 1440;
 export const PAD = 40; // hPadding is 40 for all versions; right edge = WIDTH - PAD
+// Bounds are absolute pixels in the rendered image's own space (not a linear scale of WIDTH,
+// since PAD is fixed). Each image is paired with its same-dimension bounds.db, so the geometry
+// invariants must hold at every shipped width — guard the common ones.
+export const DIMENSIONS = [1080, 1440, 2160] as const;
 
 // Representative pages exercised by the render/golden tests:
 //   1   Al-Fatiha — basmala + centered opening page
@@ -44,13 +48,15 @@ export interface BoundRow {
 	width: number;
 	height: number;
 	isMarker: number;
+	wordIndex: number;
+	tajweedIndex: string | null;
 }
 
 // Drive the real generate() pipeline (same path the shipped bounds.db comes from) over the
 // representative pages into a throwaway dir, then return their bounds rows. Engine matches the
 // CLI default — Cairo for V1/V2; generate() forces Skia for V4 (needs COLR/CPAL).
-export const renderRepPages = async (v: FontVersion): Promise<BoundRow[]> => {
-	const out = mkdtempSync(path.join(tmpdir(), `qig-test-${v}-`));
+export const renderRepPages = async (v: FontVersion, width: number = WIDTH): Promise<BoundRow[]> => {
+	const out = mkdtempSync(path.join(tmpdir(), `qig-test-${v}-${width}-`));
 	try {
 		await generate({
 			version: v,
@@ -59,7 +65,7 @@ export const renderRepPages = async (v: FontVersion): Promise<BoundRow[]> => {
 			startPage: Math.min(...REP_PAGES),
 			endPage: Math.max(...REP_PAGES),
 			pages: REP_PAGES,
-			width: WIDTH,
+			width,
 			withMarkers: true,
 			centerPages: false,
 			centerText: false,
@@ -74,11 +80,12 @@ export const renderRepPages = async (v: FontVersion): Promise<BoundRow[]> => {
 			outputDir: out,
 			dataDir: DATA_DIR,
 		});
-		const db = new Database(path.join(out, v, String(WIDTH), "png", "bounds.db"), { readonly: true });
+		const db = new Database(path.join(out, v, String(width), "png", "bounds.db"), { readonly: true });
 		const rows = db
 			.query(
 				`SELECT page, line, position, surah_number AS surah, ayah_number AS ayah,
-				        x, y, width, height, is_marker AS isMarker
+				        x, y, width, height, is_marker AS isMarker,
+				        word_index AS wordIndex, tajweed_index AS tajweedIndex
 				 FROM glyph_bounds ORDER BY page, line, position, is_marker`,
 			)
 			.all() as BoundRow[];
