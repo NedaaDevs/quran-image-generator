@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { losslessCompressPng } from "@napi-rs/image";
 
@@ -7,7 +7,8 @@ import { createBoundsDb, type LineMetadata } from "./bounds-db";
 import { setDarkInk, setEngine, setRecolor } from "./canvas-factory";
 import { createDb, loadSurahMeta } from "./database";
 import { registerPageFont, registerSurahFonts } from "./font-loader";
-import type { ColorRemap } from "./font-palette";
+import { buildTajweedResolver, type ColorRemap, type TajweedPaletteEntry } from "./font-palette";
+import { sanitizeFontFile } from "./font-sanitizer";
 import {
 	type MarkerScaleName,
 	measurePage,
@@ -23,6 +24,7 @@ import {
 	setBaseInk,
 	setBasmalaText,
 	setSurahNameGlyphs,
+	setTajweedResolver,
 } from "./renderer";
 import { renderFullPageV1, renderLineV1 } from "./renderer-v1";
 import { renderFullPageV2, renderLineV2 } from "./renderer-v2";
@@ -79,6 +81,8 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 	setDarkInk(opts.inkColor);
 	setRecolor(opts.recolor);
 	setBaseInk(opts.inkColor ?? "#000000");
+	// V4 sets a per-page tajwid color resolver below; reset here so a prior V4 run can't leak into V1/V2.
+	setTajweedResolver(() => null);
 	const dbPath = path.join(opts.dataDir, opts.version, "quran-layout.db");
 	const fontsDir = path.join(opts.dataDir, opts.version, "fonts");
 	const db = createDb(dbPath);
@@ -154,6 +158,8 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 	const jsonBounds: GlyphBounds[] = [];
 
 	const allLineMetadata: LineMetadata[] = [];
+	// Captured from a V4 page font (identical across pages); written once below. Empty for V1/V2.
+	let tajweedPalette: TajweedPaletteEntry[] = [];
 
 	const pageSet = opts.pages ? new Set(opts.pages) : null;
 
@@ -171,6 +177,15 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 		boundsDb.clearPage(page);
 		let t = now();
 		const fontFamily = registerPageFont(fontsDir, page, opts.version);
+		// V4 page fonts carry the tajwid COLR/CPAL tables — resolve each glyph's rule slot index from
+		// this page's font. Sanitized buffer matches the rendered cmap; CPAL/COLR are untouched.
+		// The palette is identical across page fonts, so capturing it from any V4 page suffices.
+		if (opts.version === FontVersion.V4) {
+			const fontBuf = readFileSync(sanitizeFontFile(path.resolve(fontsDir, `p${page}.ttf`)));
+			const tajweed = buildTajweedResolver(fontBuf);
+			setTajweedResolver(tajweed.resolve);
+			if (tajweed.palette.length > 0) tajweedPalette = tajweed.palette;
+		}
 		perf.font += now() - t;
 		const lines = db.getPageLines(page);
 
@@ -313,6 +328,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 	}
 
 	boundsDb.writeLineMetadata(allLineMetadata);
+	boundsDb.writeTajweedPalette(tajweedPalette);
 	boundsDb.commit();
 	boundsDb.close();
 

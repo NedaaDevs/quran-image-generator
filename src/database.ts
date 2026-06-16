@@ -27,7 +27,7 @@ export const createDb = (dbPath: string) => {
 	const lineStmt = db.query("SELECT line, type, surah_number FROM mushaf_layout WHERE page = ? ORDER BY line");
 
 	const glyphStmt = db.query(
-		"SELECT position, text_qpc, surah_number, ayah_number FROM mushaf_words WHERE page = ? AND line = ? ORDER BY position ASC",
+		"SELECT position, text_qpc, surah_number, ayah_number, word_index FROM mushaf_words WHERE page = ? AND line = ? ORDER BY position ASC",
 	);
 
 	const getPageLines = (page: number) =>
@@ -38,6 +38,7 @@ export const createDb = (dbPath: string) => {
 		text_qpc: string;
 		surah_number: number;
 		ayah_number: number;
+		word_index: number;
 	}
 
 	const getLineGlyphs = (page: number, line: number, splitMarkers = false) => {
@@ -47,6 +48,7 @@ export const createDb = (dbPath: string) => {
 			text_qpc: r.text_qpc,
 			surahNumber: r.surah_number,
 			ayahNumber: r.ayah_number,
+			wordIndex: r.word_index,
 		}));
 		if (!splitMarkers) return glyphs;
 

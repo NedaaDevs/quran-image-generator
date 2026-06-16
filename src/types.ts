@@ -52,6 +52,12 @@ export interface GlyphBounds {
 	width: number;
 	height: number;
 	isMarker: boolean;
+	// Word number within its ayah (QUL location's 3rd component) — lets apps join to per-word
+	// rule data keyed by surah:ayah:word. Markers inherit their merged word's index.
+	wordIndex: number;
+	// V4 tajwid rule(s) for this word: distinct CPAL palette slot indices, comma-joined (e.g. "15,5"),
+	// joinable to the tajweed_palette table. Null for V1/V2, markers, and base-ink-only words.
+	tajweedIndex: string | null;
 }
 
 export interface GlyphData {
@@ -59,6 +65,7 @@ export interface GlyphData {
 	text_qpc: string;
 	surahNumber: number;
 	ayahNumber: number;
+	wordIndex: number;
 	isMarker?: boolean;
 }
 

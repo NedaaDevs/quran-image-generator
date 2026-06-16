@@ -69,6 +69,8 @@ const drawLineCentered = (
 			width: Math.round(g.w),
 			height: Math.round(gm.actualBoundingBoxAscent + gm.actualBoundingBoxDescent),
 			isMarker: g.isMarker ?? false,
+			wordIndex: g.wordIndex,
+			tajweedIndex: null, // V2 fonts have no COLR/CPAL tajwid tables
 		});
 	}
 

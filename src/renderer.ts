@@ -106,6 +106,13 @@ export const setBaseInk = (color: string) => {
 	baseInk = color;
 };
 
+// Resolves a glyph's QCF word string to its tajwid CPAL palette slot index/indices, or null. Set per
+// page by the generator for V4 (built from that page's font); V1/V2 leave the default null-resolver.
+let resolveTajweed: (textQpc: string) => string | null = () => null;
+export const setTajweedResolver = (fn: (textQpc: string) => string | null) => {
+	resolveTajweed = fn;
+};
+
 // Builds "سورة <name>" ligature text — v1/v4 need "surah-icon" prefix, v2 bakes it in
 const surahNameText = (surahNumber: number, fontSize: number): string => {
 	// Color fonts use direct codepoint mapping instead of GSUB ligatures
@@ -412,6 +419,9 @@ export const drawLineJustified = (
 			width: Math.round(g.w),
 			height: Math.round(gm.actualBoundingBoxAscent + gm.actualBoundingBoxDescent),
 			isMarker: g.isMarker ?? false,
+			wordIndex: g.wordIndex,
+			// Markers carry decorative COLR colors that aren't tajwid rules — always null them.
+			tajweedIndex: g.isMarker ? null : resolveTajweed(g.text_qpc),
 		};
 	};
 
