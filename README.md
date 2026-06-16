@@ -144,6 +144,21 @@ output/{version}/{width}/
 | width | INTEGER | Glyph width (px) |
 | height | INTEGER | Glyph height (px) |
 | is_marker | INTEGER | 1 = ayah end marker, 0 = word |
+| word_index | INTEGER | Word number within its ayah (join key: `surah:ayah:word`) |
+| tajweed_index | TEXT | V4 tajwid rule(s): CPAL palette slot index/indices, comma-joined for multi-rule words (e.g. `15,5`), joinable to `tajweed_palette`. `NULL` for V1/V2, markers, and base-ink-only words. |
+
+The slot index is a stable rule key (it doesn't shift across font builds the way the raw RGB does); map it to a rule in your own legend. Use `tajweed_palette` only if you need the font's native color.
+
+#### `tajweed_palette`
+
+The font's canonical tajwid colors, written once (the palette is identical across all page fonts). Empty for V1/V2.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| idx | INTEGER | CPAL palette slot (matches a value in `tajweed_index`) |
+| hex | TEXT | Canonical source color `#RRGGBB`, uppercase |
+
+The DB's `PRAGMA user_version` carries the schema version (currently `2`); bump it on any schema change so clients can detect a stale download and re-fetch.
 
 #### `line_metadata`
 
