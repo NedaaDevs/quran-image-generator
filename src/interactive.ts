@@ -145,8 +145,14 @@ export const promptOptions = async (root: string): Promise<GeneratorOptions> => 
 	});
 
 	const withMarkers = await confirm({ message: "Include markers?", default: true });
-	const centerPages = await confirm({ message: "Center pages 1-2?", default: false });
-	const centerText = await confirm({ message: "Center text horizontally?", default: false });
+	const centerPages = await confirm({
+		message: "Center pages 1-2? (both axes, like the print)",
+		default: false,
+	});
+	const centerText = await confirm({
+		message: "Center ALL text horizontally? (kills justification everywhere; openers already center above)",
+		default: false,
+	});
 	const quantizeAlpha =
 		!isDebug &&
 		format === ImageFormat.PNG &&

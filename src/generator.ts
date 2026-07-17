@@ -189,6 +189,10 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 		perf.font += now() - t;
 		const lines = db.getPageLines(page);
 
+		// Short special pages (openers) center horizontally when centerPages is on,
+		// matching the print; centerText stays as the explicit global override.
+		const centerTextForPage = opts.centerText || (opts.centerPages && lines.length < LINES_PER_PAGE);
+
 		const lineInputs = lines.map((l) => ({
 			...l,
 			glyphs: db.getLineGlyphs(page, l.line, true),
@@ -220,7 +224,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 				headerGlyphs,
 				fmt,
 				opts.centerPages,
-				opts.centerText,
+				centerTextForPage,
 			);
 			const outDir = path.join(themeDir, "pages");
 			mkdirSync(outDir, { recursive: true });
@@ -285,7 +289,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 						page,
 						opts.showBounds,
 						fmt,
-						opts.centerText,
+						centerTextForPage,
 					);
 					perf.render += now() - t;
 					const optimized = await optimize(buffer);
