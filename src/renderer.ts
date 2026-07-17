@@ -1,5 +1,6 @@
 import { createCanvas, createDecorativeCanvas } from "./canvas-factory";
 import { BASMALA_FONT, SURAH_HEADER_FONT, SURAH_NAME_FONT } from "./font-loader";
+import { extractAlphaMask, tintMask } from "./ornaments";
 import { type GlyphBounds, ImageFormat, type LineInput, LineType, type MeasuredLine } from "./types";
 
 // Cairo and Skia have incompatible toBuffer overloads — cast to satisfy both
@@ -341,7 +342,7 @@ export const drawDecorativeLine = (
 	}
 };
 
-// Themed marker circle sizes (3:4 aspect ratio matching Ayah app convention)
+// Themed marker circle sizes (3:4 portrait aspect ratio)
 export const MarkerScale = {
 	"3x": { w: 180, h: 240 },
 	"6x": { w: 360, h: 480 },
@@ -375,6 +376,32 @@ export const renderMarkerCircle = (
 	img.src = Buffer.from(colored);
 	ctx.drawImage(img, 0, 0, w, h);
 	return canvas.toBuffer(toMime(format));
+};
+
+// Themed surah-frame variants: the shared-pixel frame template ink-tinted per QuranTheme,
+// matching the themed marker circles (src/ornaments.ts: alpha channel = mask, RGB = theme ink).
+// These replace the old untinted surah-frame.png as the only frame artifact.
+export const renderThemedSurahFrame = async (
+	width: number,
+	lineHeight: number,
+	headerGlyphs: Record<string, string>,
+	theme: QuranThemeName,
+	format: ImageFormat,
+): Promise<Buffer> => {
+	const skia = require("@napi-rs/canvas");
+	const frameBuf = renderSurahFrame(width, lineHeight, headerGlyphs, ImageFormat.PNG);
+	const frameImg = await skia.loadImage(frameBuf);
+	const decodeCanvas = skia.createCanvas(width, lineHeight);
+	const decodeCtx = decodeCanvas.getContext("2d");
+	decodeCtx.drawImage(frameImg, 0, 0);
+	const mask = extractAlphaMask(decodeCtx.getImageData(0, 0, width, lineHeight).data, width, lineHeight);
+
+	const outCanvas = skia.createCanvas(width, lineHeight);
+	const outCtx = outCanvas.getContext("2d");
+	const tinted = outCtx.createImageData(width, lineHeight);
+	tinted.data.set(tintMask(mask, QuranTheme[theme].marker));
+	outCtx.putImageData(tinted, 0, 0);
+	return outCanvas.toBuffer(toMime(format));
 };
 
 // Renders glyphs RTL with inter-word gap justification.

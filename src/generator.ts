@@ -17,9 +17,9 @@ import {
 	renderBasmala,
 	renderBlankLine,
 	renderMarkerCircle,
-	renderSurahFrame,
 	renderSurahHeader,
 	renderSurahName,
+	renderThemedSurahFrame,
 	resetMeasureCtx,
 	setBaseInk,
 	setBasmalaText,
@@ -337,14 +337,15 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 		await Bun.write(jsonPath, JSON.stringify(jsonBounds));
 	}
 
-	// Generate reusable marker templates (ornamental assets for theme overlays)
+	// Generate reusable marker templates (ornamental assets for theme overlays).
+	// Surah frame ships as themed variants only — one per QuranTheme, like the marker circles.
 	const lineHeight = Math.round((opts.width * 232) / 1440);
 	const markersDir = path.join(fmtDir, "markers");
 	mkdirSync(markersDir, { recursive: true });
-	await Bun.write(
-		path.join(markersDir, `surah-frame.${ext}`),
-		await optimize(renderSurahFrame(opts.width, lineHeight, headerGlyphs, fmt)),
-	);
+	for (const theme of Object.keys(QuranTheme) as QuranThemeName[]) {
+		const themedFrame = await renderThemedSurahFrame(opts.width, lineHeight, headerGlyphs, theme, fmt);
+		await Bun.write(path.join(markersDir, `frame-${theme}.${ext}`), await optimize(themedFrame));
+	}
 
 	// Copy ornamental SVG frames for app overlay (one per style variant)
 	const frameStyles = ["classic", "cartouche", "geometric"];
