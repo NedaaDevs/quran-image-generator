@@ -1,6 +1,5 @@
 import { createCanvas, createDecorativeCanvas } from "./canvas-factory";
-import { BASMALA_FONT, SURAH_HEADER_FONT, SURAH_NAME_FONT } from "./font-loader";
-import { extractAlphaMask, tintMask } from "./ornaments";
+import { BASMALA_FONT, QURAN_COMMON_FONT, SURAH_HEADER_FONT, SURAH_NAME_FONT } from "./font-loader";
 import { type GlyphBounds, ImageFormat, type LineInput, LineType, type MeasuredLine } from "./types";
 
 // Cairo and Skia have incompatible toBuffer overloads — cast to satisfy both
@@ -378,30 +377,27 @@ export const renderMarkerCircle = (
 	return canvas.toBuffer(toMime(format));
 };
 
-// Themed surah-frame variants: the shared-pixel frame template ink-tinted per QuranTheme,
-// matching the themed marker circles (src/ornaments.ts: alpha channel = mask, RGB = theme ink).
-// These replace the old untinted surah-frame.png as the only frame artifact.
-export const renderThemedSurahFrame = async (
+// Themed surah-frame variants: the quran-common font's `header` ligature (the full
+// ornamental band as vector outlines) drawn at the theme's ink color — crisp at any
+// size, no template diffing. Sized to fill the line width; centered vertically.
+export const renderThemedSurahFrame = (
 	width: number,
 	lineHeight: number,
-	headerGlyphs: Record<string, string>,
 	theme: QuranThemeName,
 	format: ImageFormat,
-): Promise<Buffer> => {
-	const skia = require("@napi-rs/canvas");
-	const frameBuf = renderSurahFrame(width, lineHeight, headerGlyphs, ImageFormat.PNG);
-	const frameImg = await skia.loadImage(frameBuf);
-	const decodeCanvas = skia.createCanvas(width, lineHeight);
-	const decodeCtx = decodeCanvas.getContext("2d");
-	decodeCtx.drawImage(frameImg, 0, 0);
-	const mask = extractAlphaMask(decodeCtx.getImageData(0, 0, width, lineHeight).data, width, lineHeight);
-
-	const outCanvas = skia.createCanvas(width, lineHeight);
-	const outCtx = outCanvas.getContext("2d");
-	const tinted = outCtx.createImageData(width, lineHeight);
-	tinted.data.set(tintMask(mask, QuranTheme[theme].marker));
-	outCtx.putImageData(tinted, 0, 0);
-	return outCanvas.toBuffer(toMime(format));
+): Buffer => {
+	const canvas = createDecorativeCanvas(width, lineHeight);
+	const ctx = canvas.getContext("2d");
+	// Measure at a probe size, then scale so the band spans the full width.
+	cmx().font = `100px "${QURAN_COMMON_FONT}"`;
+	const probeWidth = cmx().measureText("header").width;
+	const fontSize = probeWidth > 0 ? Math.floor((100 * width) / probeWidth) : 100;
+	ctx.font = `${fontSize}px "${QURAN_COMMON_FONT}"`;
+	ctx.fillStyle = QuranTheme[theme].marker;
+	ctx.textAlign = "center";
+	ctx.textBaseline = "middle";
+	ctx.fillText("header", width / 2, lineHeight / 2);
+	return canvas.toBuffer(toMime(format));
 };
 
 // Renders glyphs RTL with inter-word gap justification.

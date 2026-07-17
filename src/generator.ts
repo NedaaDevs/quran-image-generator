@@ -343,7 +343,7 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 	const markersDir = path.join(fmtDir, "markers");
 	mkdirSync(markersDir, { recursive: true });
 	for (const theme of Object.keys(QuranTheme) as QuranThemeName[]) {
-		const themedFrame = await renderThemedSurahFrame(opts.width, lineHeight, headerGlyphs, theme, fmt);
+		const themedFrame = renderThemedSurahFrame(opts.width, lineHeight, theme, fmt);
 		await Bun.write(path.join(markersDir, `frame-${theme}.${ext}`), await optimize(themedFrame));
 	}
 

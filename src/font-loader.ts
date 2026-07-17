@@ -8,6 +8,7 @@ import type { FontVersion } from "./types";
 export const SURAH_NAME_FONT = "SurahName";
 // Surah header font renders ornamental frame per surah via Unicode codepoints
 export const SURAH_HEADER_FONT = "SurahHeader";
+export const QURAN_COMMON_FONT = "QuranCommon";
 // Basmala uses page 1's QCF font — same calligraphic style as the page text
 export const BASMALA_FONT = "Basmala";
 
@@ -32,6 +33,7 @@ export const registerSurahFonts = (dataDir: string, version: FontVersion, colorS
 	const regularPath = path.join(dataDir, "common", "fonts", `surah-name-${version}.ttf`);
 	registerDecorative(colorSurahName && existsSync(colorPath) ? colorPath : regularPath, SURAH_NAME_FONT);
 	registerDecorative(path.join(dataDir, "common", "fonts", "surah-header.ttf"), SURAH_HEADER_FONT);
+	registerDecorative(path.join(dataDir, "common", "fonts", "quran-common.ttf"), QURAN_COMMON_FONT);
 	// Page 1 font contains basmala glyphs matching the version's calligraphic style
 	registerDecorative(path.join(dataDir, version, "fonts", "p1.ttf"), BASMALA_FONT);
 };
