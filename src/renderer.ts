@@ -129,6 +129,65 @@ const surahNameText = (surahNumber: number, fontSize: number): string => {
 
 // --- Shared decorative renderers (version-independent) ---
 
+// Open panel of the ornamental band (fractions of the 1440×232 strip), measured
+// from the quran-common `header` glyph: x 370–1071, rows 47–180. Headerless
+// names are sized to sit inside it with breathing room, ink-centered, so the
+// app's band overlay wraps them without per-edition offsets.
+const PANEL_W_FRAC = 701 / 1440;
+const PANEL_H_FRAC = 133 / 232;
+const PANEL_FILL = 0.9;
+
+const drawFittedSurahName = (ctx: CanvasContext, surahNumber: number, width: number, lineHeight: number, y: number) => {
+	const probe = 100;
+	const text = surahNameText(surahNumber, probe);
+	cmx().font = `${probe}px "${SURAH_NAME_FONT}"`;
+	const m = cmx().measureText(text);
+	const inkH = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+	if (m.width <= 0 || inkH <= 0) return;
+	const maxW = width * PANEL_W_FRAC * PANEL_FILL;
+	const maxH = lineHeight * PANEL_H_FRAC * PANEL_FILL;
+	const size = Math.floor(probe * Math.min(maxW / m.width, maxH / inkH));
+
+	// Two-pass: render on a scratch canvas, measure the REAL ink bbox from
+	// pixels (font metrics under- or over-shoot for these ligatures), then draw
+	// shifted so the ink midpoint sits exactly on the line center.
+	const scratch = createDecorativeCanvas(width, lineHeight);
+	const sctx = scratch.getContext("2d");
+	sctx.font = `${size}px "${SURAH_NAME_FONT}"`;
+	sctx.fillStyle = "#000000";
+	sctx.textAlign = "center";
+	sctx.direction = "rtl";
+	sctx.textBaseline = "middle";
+	sctx.fillText(text, width / 2, lineHeight / 2);
+	const data = sctx.getImageData(0, 0, width, lineHeight).data;
+	let top = -1;
+	let bottom = -1;
+	for (let row = 0; row < lineHeight && top < 0; row++) {
+		for (let xPos = 3; xPos < width * 4; xPos += 4) {
+			if ((data[row * width * 4 + xPos] ?? 0) > 16) {
+				top = row;
+				break;
+			}
+		}
+	}
+	for (let row = lineHeight - 1; row >= 0 && bottom < 0; row--) {
+		for (let xPos = 3; xPos < width * 4; xPos += 4) {
+			if ((data[row * width * 4 + xPos] ?? 0) > 16) {
+				bottom = row;
+				break;
+			}
+		}
+	}
+	const inkShift = top >= 0 ? lineHeight / 2 - (top + bottom + 1) / 2 : 0;
+
+	ctx.font = `${size}px "${SURAH_NAME_FONT}"`;
+	ctx.fillStyle = baseInk;
+	ctx.textAlign = "center";
+	ctx.direction = "rtl";
+	ctx.textBaseline = "middle";
+	ctx.fillText(text, width / 2, y + lineHeight / 2 + inkShift);
+};
+
 // Composites ornamental frame + version-matched surah name (ligature font)
 export const renderSurahHeader = (
 	width: number,
@@ -165,13 +224,7 @@ export const renderSurahName = (
 ): Buffer => {
 	const canvas = createDecorativeCanvas(width, lineHeight);
 	const ctx = canvas.getContext("2d");
-	const fontSize = Math.floor(lineHeight * 0.65);
-	ctx.font = `${fontSize}px "${SURAH_NAME_FONT}"`;
-	ctx.fillStyle = baseInk;
-	ctx.textBaseline = "middle";
-	ctx.textAlign = "center";
-	ctx.direction = "rtl";
-	ctx.fillText(surahNameText(surahNumber, fontSize), width / 2, lineHeight / 2);
+	drawFittedSurahName(ctx, surahNumber, width, lineHeight, 0);
 	return canvas.toBuffer(toMime(format));
 };
 
@@ -323,13 +376,7 @@ export const drawDecorativeLine = (
 				ctx.fillText(glyph.trim(), width / 2, y + lineHeight / 2);
 			}
 		} else {
-			const nameFontSize = Math.floor(lineHeight * 0.45);
-			ctx.font = `${nameFontSize}px "${SURAH_NAME_FONT}"`;
-			ctx.fillStyle = baseInk;
-			ctx.textBaseline = "middle";
-			ctx.textAlign = "center";
-			ctx.direction = "rtl";
-			ctx.fillText(surahNameText(lineInfo.surah_number, nameFontSize), width / 2, y + lineHeight / 2);
+			drawFittedSurahName(ctx, lineInfo.surah_number, width, lineHeight, y);
 		}
 	} else if (lineInfo.type === LineType.Basmala) {
 		ctx.font = `${fontSize}px "${BASMALA_FONT}"`;
