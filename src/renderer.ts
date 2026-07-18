@@ -140,6 +140,22 @@ export const SURAH_FRAME_PANEL = {
 	r: Number((1071 / 1440).toFixed(4)),
 	b: Number((180 / 232).toFixed(4)),
 } as const;
+// Open interiors of the two flanking medallion circles, same fraction space
+// (measured: x 248–350 and 1090–1191, rows 64–163).
+export const SURAH_FRAME_MEDALLIONS = [
+	{
+		l: Number((248 / 1440).toFixed(4)),
+		t: Number((64 / 232).toFixed(4)),
+		r: Number((351 / 1440).toFixed(4)),
+		b: Number((164 / 232).toFixed(4)),
+	},
+	{
+		l: Number((1090 / 1440).toFixed(4)),
+		t: Number((64 / 232).toFixed(4)),
+		r: Number((1192 / 1440).toFixed(4)),
+		b: Number((164 / 232).toFixed(4)),
+	},
+] as const;
 const PANEL_W_FRAC = 701 / 1440;
 const PANEL_H_FRAC = 133 / 232;
 const PANEL_FILL = 0.9;

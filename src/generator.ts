@@ -21,6 +21,7 @@ import {
 	renderSurahName,
 	renderThemedSurahFrame,
 	resetMeasureCtx,
+	SURAH_FRAME_MEDALLIONS,
 	SURAH_FRAME_PANEL,
 	setBaseInk,
 	setBasmalaText,
@@ -355,7 +356,11 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 	// overlaying content (washes, labels) on the open band.
 	await Bun.write(
 		path.join(markersDir, "surah-frame.pack.json"),
-		`${JSON.stringify({ assets: { frame: { panel: SURAH_FRAME_PANEL } } }, null, "\t")}\n`,
+		`${JSON.stringify(
+			{ assets: { frame: { panel: SURAH_FRAME_PANEL, medallions: SURAH_FRAME_MEDALLIONS } } },
+			null,
+			"\t",
+		)}\n`,
 	);
 
 	// Copy ornamental SVG frames for app overlay (one per style variant)
