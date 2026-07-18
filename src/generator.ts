@@ -21,6 +21,7 @@ import {
 	renderSurahName,
 	renderThemedSurahFrame,
 	resetMeasureCtx,
+	SURAH_FRAME_PANEL,
 	setBaseInk,
 	setBasmalaText,
 	setSurahNameGlyphs,
@@ -350,6 +351,12 @@ export const generate = async (opts: GeneratorOptions): Promise<GeneratorResult>
 		const themedFrame = renderThemedSurahFrame(opts.width, lineHeight, theme, fmt);
 		await Bun.write(path.join(markersDir, `frame-${theme}.${ext}`), await optimize(themedFrame));
 	}
+	// Sidecar next to the frame assets: the text-safe panel, for consumers
+	// overlaying content (washes, labels) on the open band.
+	await Bun.write(
+		path.join(markersDir, "surah-frame.pack.json"),
+		`${JSON.stringify({ assets: { frame: { panel: SURAH_FRAME_PANEL } } }, null, "\t")}\n`,
+	);
 
 	// Copy ornamental SVG frames for app overlay (one per style variant)
 	const frameStyles = ["classic", "cartouche", "geometric"];

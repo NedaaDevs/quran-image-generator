@@ -131,8 +131,15 @@ const surahNameText = (surahNumber: number, fontSize: number): string => {
 
 // Open panel of the ornamental band (fractions of the 1440×232 strip), measured
 // from the quran-common `header` glyph: x 370–1071, rows 47–180. Headerless
-// names are sized to sit inside it with breathing room, ink-centered, so the
-// app's band overlay wraps them without per-edition offsets.
+// names are sized to sit inside it with breathing room, ink-centered, so
+// band overlays wrap them without per-edition offsets. Exported so the frame
+// assets ship with this panel as sidecar metadata.
+export const SURAH_FRAME_PANEL = {
+	l: Number((370 / 1440).toFixed(4)),
+	t: Number((47 / 232).toFixed(4)),
+	r: Number((1071 / 1440).toFixed(4)),
+	b: Number((180 / 232).toFixed(4)),
+} as const;
 const PANEL_W_FRAC = 701 / 1440;
 const PANEL_H_FRAC = 133 / 232;
 const PANEL_FILL = 0.9;
