@@ -123,7 +123,10 @@ jobs:
           if [ "$RUNNER_OS" = "Windows" ]; then
             # Bun appends .exe to Windows outfiles; Windows users expect a .zip.
             cp node_modules/pngquant-bin/vendor/pngquant.exe pngquant.exe
-            7z a -tzip "$ARTIFACT.zip" "$ARTIFACT.exe" pngquant.exe
+            # Skia needs ICU data; the binary unpacks its .node to a temp dir,
+            # so Skia finds icudtl.dat only next to the .exe.
+            cp node_modules/@napi-rs/canvas-win32-x64-msvc/icudtl.dat icudtl.dat
+            7z a -tzip "$ARTIFACT.zip" "$ARTIFACT.exe" pngquant.exe icudtl.dat
           else
             if [ -x node_modules/pngquant-bin/vendor/pngquant ]; then
               cp node_modules/pngquant-bin/vendor/pngquant pngquant
@@ -134,8 +137,8 @@ jobs:
           fi
 
       - name: Smoke-test the packaged binary
-        # Fresh dir with no data/, so the run exercises first-run asset extraction,
-        # a Skia render and pngquant exactly as a user's first launch would.
+        # Fresh dir, as on a user's first launch: asset unpack, Skia, pngquant.
+        # Render every bundled version — V4 takes a different Skia text path.
         env:
           ARTIFACT: ${{ matrix.artifact }}
           VERSIONS: ${{ matrix.versions }}
@@ -148,8 +151,11 @@ jobs:
             tar xzf "$ARTIFACT.tar.gz" -C smoke
             bin="./$ARTIFACT"
           fi
-          (cd smoke && "$bin" 1 1 360 page "${VERSIONS%% *}" quantize)
-          find smoke/output -name '*.png' | grep -q .
+          cd smoke
+          for v in $VERSIONS; do
+            "$bin" 1 1 360 page "$v" quantize
+            [ -n "$(find "output/$v" -name '*.png' -print -quit)" ]
+          done
 
       - uses: actions/upload-artifact@v7
         with:
