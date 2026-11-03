@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { confirm, input, select } from "@inquirer/prompts";
+import { unzipSync } from "fflate";
 import { type ColorRemap, parseRecolor } from "./font-palette";
 import type { GeneratorOptions } from "./generator";
 import type { MarkerScaleName } from "./renderer";
@@ -19,15 +20,17 @@ const downloadAndExtract = async (url: string, destDir: string) => {
 	const res = await fetch(url, { redirect: "follow" });
 	if (!res.ok) throw new Error(`Download failed: ${res.status} ${res.statusText}`);
 
-	const tmpZip = path.join(destDir, "_tmp.zip");
-	await Bun.write(tmpZip, await res.arrayBuffer());
-
-	const proc = Bun.spawn(["unzip", "-o", "-q", tmpZip, "-d", destDir], { stdout: "ignore", stderr: "pipe" });
-	if ((await proc.exited) !== 0) {
-		const stderr = await new Response(proc.stderr).text();
-		throw new Error(`Extraction failed: ${stderr.trim()}`);
+	// In-process unzip — Windows ships no `unzip` binary
+	const root = path.resolve(destDir);
+	const entries = unzipSync(new Uint8Array(await res.arrayBuffer()));
+	for (const [name, data] of Object.entries(entries)) {
+		if (name.endsWith("/")) continue;
+		const dest = path.resolve(root, name);
+		// Reject entries that resolve outside destDir (zip-slip)
+		if (!dest.startsWith(root + path.sep)) throw new Error(`Unsafe path in archive: ${name}`);
+		mkdirSync(path.dirname(dest), { recursive: true });
+		await Bun.write(dest, data);
 	}
-	unlinkSync(tmpZip);
 };
 
 const ensureAssets = async (dataDir: string, version: string) => {

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, unlinkSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { type ColorRemap, parseRecolor } from "./font-palette";
 import { generate } from "./generator";
@@ -6,8 +6,9 @@ import { promptOptions } from "./interactive";
 import type { MarkerScaleName } from "./renderer";
 import { FontVersion, ImageFormat, RenderEngine, RenderMode } from "./types";
 
-// Compiled binary uses $bunfs virtual filesystem — resolve paths from the executable location
-const isCompiled = import.meta.dir.includes("$bunfs");
+// Compiled binary runs from Bun's virtual FS: /$bunfs/root, or B:/~BUN/root on
+// Windows — resolve paths from the executable location
+const isCompiled = /\$bunfs|~BUN/.test(import.meta.dir);
 const ROOT = isCompiled ? path.dirname(process.execPath) : path.join(import.meta.dir, "..");
 
 // In compiled mode, look for pngquant next to executable, then fall back to system PATH.
@@ -15,7 +16,7 @@ const ROOT = isCompiled ? path.dirname(process.execPath) : path.join(import.meta
 // where pngquant-bin ships no usable prebuilt).
 const resolvePngquant = (): string => {
 	if (isCompiled) {
-		const local = path.join(ROOT, "pngquant");
+		const local = path.join(ROOT, process.platform === "win32" ? "pngquant.exe" : "pngquant");
 		if (existsSync(local)) return local;
 		return "pngquant";
 	}
@@ -29,9 +30,8 @@ const resolvePngquant = (): string => {
 };
 const pngquantBin = resolvePngquant();
 
-// Embedded at compile time — resolves to $bunfs path in binary, real path in dev.
-// tar (not zip) so we don't pull in `unzip` as a runtime requirement —
-// `tar` ships in coreutils-style base images while `unzip` often doesn't.
+// Embedded at compile time — virtual-FS path in binary, real path in dev.
+// tar so Bun.Archive unpacks it in-process; hosts need no `tar` or `unzip`.
 let assetsTar: string | undefined;
 try {
 	assetsTar = require("../assets.tar");
@@ -41,19 +41,12 @@ try {
 if (isCompiled && assetsTar && !existsSync(path.join(ROOT, "data", "common"))) {
 	const dataDir = path.join(ROOT, "data");
 	console.log("Extracting embedded assets...");
-	mkdirSync(dataDir, { recursive: true });
-	// Copy from $bunfs to a real path — tar can't read the virtual filesystem directly
-	const tmpTar = path.join(dataDir, "_assets.tar");
-	await Bun.write(tmpTar, Bun.file(assetsTar));
-	const proc = Bun.spawn(["tar", "-xf", tmpTar, "-C", dataDir], {
-		stdout: "ignore",
-		stderr: "pipe",
-	});
-	if ((await proc.exited) !== 0) {
-		console.error("Failed to extract assets");
+	try {
+		await new Bun.Archive(Bun.file(assetsTar)).extract(dataDir);
+	} catch (err) {
+		console.error(`Failed to extract assets: ${err instanceof Error ? err.message : err}`);
 		process.exit(1);
 	}
-	unlinkSync(tmpTar);
 	console.log("Done.\n");
 }
 
