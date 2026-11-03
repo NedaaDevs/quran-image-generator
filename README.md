@@ -76,7 +76,7 @@ docker compose run generator 1 604 1440 line v2
 
 ### Prebuilt binary (recommended)
 
-Each release ships self-contained binaries with assets embedded — no `bun install`, no font/layout download, no Cairo, `tar` or `unzip` required. Assets unpack next to the binary on first run.
+Each release ships self-contained binaries with the assets embedded, so you skip `bun install`, the font and layout download, Cairo, `tar` and `unzip`. On first run the binary unpacks its assets next to itself.
 
 Pick the variant for your platform from the [latest release](https://github.com/NedaaDevs/quran-image-generator/releases/latest):
 
@@ -99,14 +99,28 @@ curl -L https://github.com/NedaaDevs/quran-image-generator/releases/latest/downl
 ./quran-gen-v2-linux-x64 1 604 1440 line v2
 ```
 
+The archive contains the binary plus a `pngquant` sidecar (on Windows, `pngquant.exe` and Skia's `icudtl.dat`); keep them next to each other.
+
+#### Windows
+
+Extract the zip to a folder you own, such as `C:\quran-gen`. On first run the `.exe` writes up to 470 MB of fonts and layout data into `data\` beside it, and every run writes images to `output\`. `C:\Program Files` blocks those writes unless you run as administrator.
+
 ```powershell
-# Windows x64 (all versions)
+# Download and extract (all versions)
 Invoke-WebRequest https://github.com/NedaaDevs/quran-image-generator/releases/latest/download/quran-gen-windows-x64.zip -OutFile quran-gen.zip
-Expand-Archive quran-gen.zip -DestinationPath quran-gen
-.\quran-gen\quran-gen-windows-x64.exe 1 604 1440 line v2
+Expand-Archive quran-gen.zip -DestinationPath C:\quran-gen
+cd C:\quran-gen
+
+.\quran-gen-windows-x64.exe                      # interactive prompts
+.\quran-gen-windows-x64.exe 1 604 1440 line v2   # CLI args, same as on other platforms
+.\quran-gen-windows-x64.exe 1 604 2160 line v4 --ink "#E8E0D4" `
+  --recolor "F40000=F77B72,3F48E6=6BA6E6"        # a trailing backtick continues the line
 ```
 
-The archive contains the binary plus a `pngquant` sidecar (on Windows, `pngquant.exe` and Skia's `icudtl.dat`); keep them next to each other.
+- **SmartScreen:** if you see "Windows protected your PC", click **More info**, then **Run anyway**. To clear the block for the whole folder, run `Get-ChildItem C:\quran-gen | Unblock-File`.
+- **Double-click:** the `.exe` opens interactive mode in a console window, and Windows closes that window when the run ends. Start it from a terminal to keep the output.
+- **Command Prompt:** drop the `.\` prefix and end continued lines with `^`.
+- **V4:** each run prints one `SkIcuLoader: datafile missing: …\Temp\icudtl.dat` line. Ignore it while `icudtl.dat` sits next to the `.exe`.
 
 ### Build from source
 
