@@ -39,6 +39,18 @@ jobs:
             target: bun-darwin-arm64
             artifact: quran-gen-v4-darwin-arm64
             versions: v4
+          - runner: windows-latest
+            target: bun-windows-x64
+            artifact: quran-gen-v1-windows-x64
+            versions: v1
+          - runner: windows-latest
+            target: bun-windows-x64
+            artifact: quran-gen-v2-windows-x64
+            versions: v2
+          - runner: windows-latest
+            target: bun-windows-x64
+            artifact: quran-gen-v4-windows-x64
+            versions: v4
           # All-in-one binaries — one matrix entry per native runner to avoid
           # cross-arch pngquant/Skia .node mismatches.
           - runner: ubuntu-latest
@@ -53,11 +65,20 @@ jobs:
             target: bun-darwin-arm64
             artifact: quran-gen-darwin-arm64
             versions: v1 v2 v4
+          - runner: windows-latest
+            target: bun-windows-x64
+            artifact: quran-gen-windows-x64
+            versions: v1 v2 v4
           # darwin-x64 (Intel macOS) intentionally omitted: GitHub-hosted macos-13
           # runners queue too long to be useful. Apple Silicon binary covers
           # virtually all users; revisit if x64 demand surfaces.
 
     runs-on: ${{ matrix.runner }}
+
+    # Git Bash on Windows runners, so every step uses the same POSIX script.
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - uses: actions/checkout@v6
@@ -99,17 +120,44 @@ jobs:
           # sibling dylibs) out of the bundle. Skia (@napi-rs/canvas) ships a
           # single self-contained .node and is the only required engine.
           bun build src/cli.ts assets.tar --compile --external canvas --target="$TARGET" --outfile "$ARTIFACT"
-          if [ -x node_modules/pngquant-bin/vendor/pngquant ]; then
-            cp node_modules/pngquant-bin/vendor/pngquant pngquant
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            # Bun appends .exe to Windows outfiles; Windows users expect a .zip.
+            cp node_modules/pngquant-bin/vendor/pngquant.exe pngquant.exe
+            7z a -tzip "$ARTIFACT.zip" "$ARTIFACT.exe" pngquant.exe
           else
-            cp "$(command -v pngquant)" pngquant
+            if [ -x node_modules/pngquant-bin/vendor/pngquant ]; then
+              cp node_modules/pngquant-bin/vendor/pngquant pngquant
+            else
+              cp "$(command -v pngquant)" pngquant
+            fi
+            tar czf "$ARTIFACT.tar.gz" "$ARTIFACT" pngquant
           fi
-          tar czf "$ARTIFACT.tar.gz" "$ARTIFACT" pngquant
+
+      - name: Smoke-test the packaged binary
+        # Fresh dir with no data/, so the run exercises first-run asset extraction,
+        # a Skia render and pngquant exactly as a user's first launch would.
+        env:
+          ARTIFACT: ${{ matrix.artifact }}
+          VERSIONS: ${{ matrix.versions }}
+        run: |
+          mkdir smoke
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            (cd smoke && 7z x -y "../$ARTIFACT.zip" > /dev/null)
+            bin="./$ARTIFACT.exe"
+          else
+            tar xzf "$ARTIFACT.tar.gz" -C smoke
+            bin="./$ARTIFACT"
+          fi
+          (cd smoke && "$bin" 1 1 360 page "${VERSIONS%% *}" quantize)
+          find smoke/output -name '*.png' | grep -q .
 
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
-          path: ${{ matrix.artifact }}.tar.gz
+          path: |
+            ${{ matrix.artifact }}.tar.gz
+            ${{ matrix.artifact }}.zip
+          if-no-files-found: error
 
   release:
     needs: build
@@ -128,4 +176,4 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           gh release create "$TAG" --title "$TAG" --generate-notes || true
-          gh release upload "$TAG" quran-gen-*.tar.gz --clobber
+          gh release upload "$TAG" quran-gen-*.tar.gz quran-gen-*.zip --clobber

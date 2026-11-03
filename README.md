@@ -76,7 +76,7 @@ docker compose run generator 1 604 1440 line v2
 
 ### Prebuilt binary (recommended)
 
-Each release ships self-contained binaries with assets embedded — no `bun install`, no font/layout download, no Cairo or `unzip` required. Only `tar` (in every Linux/macOS base) is used to unpack assets on first run.
+Each release ships self-contained binaries with assets embedded — no `bun install`, no font/layout download, no Cairo, `tar` or `unzip` required. Assets unpack next to the binary on first run.
 
 Pick the variant for your platform from the [latest release](https://github.com/NedaaDevs/quran-image-generator/releases/latest):
 
@@ -87,7 +87,7 @@ Pick the variant for your platform from the [latest release](https://github.com/
 | `quran-gen-v2-{platform}` | v2 only | Smaller download, single version |
 | `quran-gen-v4-{platform}` | v4 only | Smaller download, single version |
 
-Supported platforms: `darwin-arm64` (Apple Silicon), `linux-x64`, `linux-arm64`.
+Supported platforms: `darwin-arm64` (Apple Silicon), `linux-x64`, `linux-arm64`, `windows-x64`.
 
 ```bash
 # Apple Silicon (all versions)
@@ -99,7 +99,14 @@ curl -L https://github.com/NedaaDevs/quran-image-generator/releases/latest/downl
 ./quran-gen-v2-linux-x64 1 604 1440 line v2
 ```
 
-The tarball contains the binary plus a `pngquant` sidecar; keep them next to each other.
+```powershell
+# Windows x64 (all versions)
+Invoke-WebRequest https://github.com/NedaaDevs/quran-image-generator/releases/latest/download/quran-gen-windows-x64.zip -OutFile quran-gen.zip
+Expand-Archive quran-gen.zip -DestinationPath quran-gen
+.\quran-gen\quran-gen-windows-x64.exe 1 604 1440 line v2
+```
+
+The archive contains the binary plus a `pngquant` sidecar (`pngquant.exe` on Windows); keep them next to each other.
 
 ### Build from source
 
