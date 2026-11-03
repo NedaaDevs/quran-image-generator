@@ -106,7 +106,7 @@ Expand-Archive quran-gen.zip -DestinationPath quran-gen
 .\quran-gen\quran-gen-windows-x64.exe 1 604 1440 line v2
 ```
 
-The archive contains the binary plus a `pngquant` sidecar (`pngquant.exe` on Windows); keep them next to each other.
+The archive contains the binary plus a `pngquant` sidecar (on Windows, `pngquant.exe` and Skia's `icudtl.dat`); keep them next to each other.
 
 ### Build from source
 
